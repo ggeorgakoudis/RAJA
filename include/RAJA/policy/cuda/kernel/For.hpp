@@ -88,6 +88,15 @@ struct CudaStatementExecutor<
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return dims.max(enclosed_dims);
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -149,6 +158,15 @@ struct CudaStatementExecutor<
     set_cuda_dim<0>(dims.min_threads, len);
 
     return dims;
+  }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
   }
 };
 
@@ -223,6 +241,15 @@ struct CudaStatementExecutor<
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return dims.max(enclosed_dims);
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -294,6 +321,15 @@ struct CudaStatementExecutor<
 
     return dims;
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -364,8 +400,16 @@ struct CudaStatementExecutor<
 
     return(dims);
   }
-};
 
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
+};
 
 
 /*
@@ -445,6 +489,15 @@ struct CudaStatementExecutor<
 
     return(dims);
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -513,9 +566,16 @@ struct CudaStatementExecutor<
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return(dims.max(enclosed_dims));
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
-
-
 
 
 /*
@@ -594,6 +654,15 @@ struct CudaStatementExecutor<
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return(dims.max(enclosed_dims));
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -657,7 +726,17 @@ struct CudaStatementExecutor<
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return dims.max(enclosed_dims);
   }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
+
 
 /*
  * Executor for block work sharing inside CudaKernel.
@@ -720,8 +799,16 @@ struct CudaStatementExecutor<
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return dims.max(enclosed_dims);
   }
-};
 
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
+};
 
 
 /*
@@ -771,6 +858,15 @@ struct CudaStatementExecutor<
   LaunchDims calculateDimensions(Data const &data)
   {
     return enclosed_stmts_t::calculateDimensions(data);
+  }
+
+  static
+  inline
+  void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
   }
 };
 

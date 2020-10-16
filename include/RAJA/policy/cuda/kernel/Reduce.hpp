@@ -86,6 +86,11 @@ struct CudaStatementExecutor<Data,
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return enclosed_dims;
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -143,6 +148,11 @@ struct CudaStatementExecutor<Data,
     // combine with enclosed statements
     LaunchDims enclosed_dims = enclosed_stmts_t::calculateDimensions(data);
     return enclosed_dims;
+  }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    enclosed_stmts_t::getFeatures(data, features);
   }
 };
 

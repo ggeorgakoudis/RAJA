@@ -62,6 +62,13 @@ struct CudaStatementExecutor<Data, statement::Lambda<LambdaIndex, Args...>, Type
   {
     return LaunchDims();
   }
+
+  static
+  inline
+  void getFeatures(Data const & RAJA_UNUSED_ARG(data), std::vector<float> &)
+  {
+    return;
+  }
 };
 
 

@@ -23,6 +23,9 @@
 #include "camp/resource.hpp"
 #if defined(RAJA_CUDA_ACTIVE)
 #include "RAJA/policy/cuda/policy.hpp"
+#if defined(RAJA_ENABLE_APOLLO)
+#include "RAJA/policy/apollo_cuda/policy.hpp"
+#endif
 #endif
 #include "RAJA/policy/hip/policy.hpp"
 #include "RAJA/policy/sequential/policy.hpp"
@@ -68,6 +71,19 @@ namespace RAJA
   struct get_resource<ExecPolicy<ISetIter, cuda_exec<BlockSize, Async>>>{
     using type = camp::resources::Cuda;
   };
+
+#if defined(RAJA_ENABLE_APOLLO)
+  template <size_t BlockSize, bool Async>
+  struct get_resource<apollo_cuda_exec<BlockSize, Async>> {
+    using type = camp::resources::Cuda;
+  };
+
+  template<typename ISetIter, size_t BlockSize, bool Async>
+  struct get_resource<ExecPolicy<ISetIter, apollo_cuda_exec<BlockSize, Async>>>{
+    using type = camp::resources::Cuda;
+  };
+#endif
+
 #endif
 
 #if defined(RAJA_ENABLE_HIP)

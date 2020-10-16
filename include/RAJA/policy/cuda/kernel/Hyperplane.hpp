@@ -100,6 +100,26 @@ struct CudaStatementExecutor<Data,
   {
     return enclosed_stmts_t::calculateDimensions(data);
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    // compute Manhattan distance of iteration space to determine
+    // as:  hp_len = l0 + l1 + l2 + ...
+    int hp_len = segment_length<HpArgumentId>(data) +
+                 foldl(RAJA::operators::plus<int>(),
+                               segment_length<Args>(data)...);
+
+    int h_args = foldl(RAJA::operators::plus<idx_t>(),
+        camp::get<Args>(data.offset_tuple)...);
+
+    // get length of i dimension
+    auto i_len = segment_length<HpArgumentId>(data);
+
+    features.push_back(hp_len);
+    features.push_back(h_args);
+    features.push_back(i_len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 

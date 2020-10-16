@@ -13,18 +13,18 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-21, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-20, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/COPYRIGHT file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-#ifndef RAJA_forall_cuda_HPP
-#define RAJA_forall_cuda_HPP
+#ifndef RAJA_forall_apollo_cuda_HPP
+#define RAJA_forall_apollo_cuda_HPP
 
 #include "RAJA/config.hpp"
 
-#if defined(RAJA_ENABLE_CUDA)
+#if defined(RAJA_ENABLE_CUDA) && defined(RAJA_ENABLE_APOLLO)
 
 #include <algorithm>
 
@@ -44,6 +44,9 @@
 
 #include "RAJA/util/resource.hpp"
 
+#include "apollo/Apollo.h"
+#include "apollo/Region.h"
+
 namespace RAJA
 {
 
@@ -56,86 +59,11 @@ namespace cuda
 namespace impl
 {
 
-/*!
- ******************************************************************************
- *
- * \brief calculate gridDim from length of iteration and blockDim
- *
- ******************************************************************************
- */
-RAJA_INLINE
-cuda_dim_t getGridDim(cuda_dim_member_t len, cuda_dim_t blockDim)
-{
-  cuda_dim_member_t block_size = blockDim.x * blockDim.y * blockDim.z;
-
-  cuda_dim_member_t gridSize = (len + block_size - 1) / block_size;
-
-  return {gridSize, 1, 1};
-}
-
-/*!
- ******************************************************************************
- *
- * \brief calculate global thread index from 1D grid of 1D blocks
- *
- ******************************************************************************
- */
-__device__ __forceinline__ unsigned int getGlobalIdx_1D_1D()
-{
-  unsigned int blockId = blockIdx.x;
-  unsigned int threadId = blockId * blockDim.x + threadIdx.x;
-  return threadId;
-}
-__device__ __forceinline__ unsigned int getGlobalNumThreads_1D_1D()
-{
-  unsigned int numThreads = blockDim.x * gridDim.x;
-  return numThreads;
-}
-
-/*!
- ******************************************************************************
- *
- * \brief calculate global thread index from 3D grid of 3D blocks
- *
- ******************************************************************************
- */
-__device__ __forceinline__ unsigned int getGlobalIdx_3D_3D()
-{
-  unsigned int blockId =
-      blockIdx.x + blockIdx.y * gridDim.x + gridDim.x * gridDim.y * blockIdx.z;
-  unsigned int threadId = blockId * (blockDim.x * blockDim.y * blockDim.z) +
-                          (threadIdx.z * (blockDim.x * blockDim.y)) +
-                          (threadIdx.y * blockDim.x) + threadIdx.x;
-  return threadId;
-}
-__device__ __forceinline__ unsigned int getGlobalNumThreads_3D_3D()
-{
-  unsigned int numThreads =
-      blockDim.x * blockDim.y * blockDim.z * gridDim.x * gridDim.y * gridDim.z;
-  return numThreads;
-}
-
-//
-//////////////////////////////////////////////////////////////////////
-//
-// CUDA kernel templates.
-//
-//////////////////////////////////////////////////////////////////////
-//
-
-/*!
- ******************************************************************************
- *
- * \brief  CUDA kernal forall template for indirection array.
- *
- ******************************************************************************
- */
-template <size_t BlockSize,
-          typename Iterator,
+template <typename Iterator,
           typename LOOP_BODY,
           typename IndexType>
-__launch_bounds__(BlockSize, 1) __global__
-    void forall_cuda_kernel(LOOP_BODY loop_body,
+    __global__
+    void forall_apollo_cuda_kernel(LOOP_BODY loop_body,
                             const Iterator idx,
                             IndexType length)
 {
@@ -158,9 +86,24 @@ __launch_bounds__(BlockSize, 1) __global__
 ////////////////////////////////////////////////////////////////////////
 //
 
+struct ApolloCallbackHelper {
+  struct callback_t {
+    Apollo::Apollo *apollo;
+    Apollo::Region *region;
+    Apollo::RegionContext *context;
+  };
+
+  static void callbackFunction(void *data)
+  {
+    callback_t *cbdata = reinterpret_cast<callback_t *>(data);
+    cbdata->region->end(cbdata->context);
+    delete cbdata;
+  }
+};
+
 template <typename Iterable, typename LoopBody, size_t BlockSize, bool Async>
 RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &cuda_res,
-                                                    cuda_exec<BlockSize, Async>,
+                                                    apollo_cuda_exec<BlockSize, Async>,
                                                     Iterable&& iter,
                                                     LoopBody&& loop_body)
 {
@@ -168,7 +111,8 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
   using LOOP_BODY = camp::decay<LoopBody>;
   using IndexType = camp::decay<decltype(std::distance(std::begin(iter), std::end(iter)))>;
 
-  auto func = impl::forall_cuda_kernel<BlockSize, Iterator, LOOP_BODY, IndexType>;
+  static Apollo *apollo = Apollo::instance();
+  static Apollo::Region *apolloRegion = nullptr;
 
   cudaStream_t stream = cuda_res.get_stream();
 
@@ -180,12 +124,35 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
   IndexType len = std::distance(begin, end);
 
   // Only launch kernel if we have something to iterate over
-  if (len > 0 && BlockSize > 0) {
+  if (len > 0 /*&& BlockSize > 0*/) {
+    int policy_index = 0;
+    static int ApolloBlockSize_policies;
+    if (apolloRegion == nullptr) {
+        // one-time initialization
+        std::string code_location = apollo->getCallpathOffset();
+        ApolloBlockSize_policies = 4;
+        apolloRegion =
+            new Apollo::Region(
+              1,
+              code_location.c_str(),
+              ApolloBlockSize_policies);
+    }
+
+    ApolloCallbackHelper::callback_t *cbdata = new ApolloCallbackHelper::callback_t();
+    cbdata->apollo = apollo;
+    cbdata->region = apolloRegion;
+    cbdata->context = apolloRegion->begin( { static_cast<float>(len) } );
+
+    policy_index = apolloRegion->getPolicyIndex(cbdata->context);
+
+    cuda_dim_member_t ApolloBlockSize = 1024 / ( 1 << (policy_index) );
+
+    auto func = impl::forall_apollo_cuda_kernel<Iterator, LOOP_BODY, IndexType>;
 
     //
     // Compute the number of blocks
     //
-    cuda_dim_t blockSize{BlockSize, 1, 1};
+    cuda_dim_t blockSize{ApolloBlockSize, 1, 1};
     cuda_dim_t gridSize = impl::getGridDim(static_cast<cuda_dim_member_t>(len), blockSize);
 
     RAJA_FT_BEGIN;
@@ -204,6 +171,8 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
       //
       // Privatize the loop_body, using make_launch_body to setup reductions
       //
+      //std::cout << "blockSize " << blockSize.x << ", " << blockSize.y << ", " << blockSize.z
+      //<< " | gridSize" << gridSize.x << ", " << gridSize.y << ", " << gridSize.z << std::endl;
       LOOP_BODY body = RAJA::cuda::make_launch_body(
           gridSize, blockSize, shmem, stream, std::forward<LoopBody>(loop_body));
 
@@ -212,6 +181,7 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
       //
       void *args[] = {(void*)&body, (void*)&begin, (void*)&len};
       RAJA::cuda::launch((const void*)func, gridSize, blockSize, args, shmem, stream);
+      cudaLaunchHostFunc(stream, ApolloCallbackHelper::callbackFunction, cbdata);
     }
 
     if (!Async) { RAJA::cuda::synchronize(stream); }
@@ -246,7 +216,7 @@ template <typename LoopBody,
           bool Async,
           typename... SegmentTypes>
 RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &r,
-                                                    ExecPolicy<seq_segit, cuda_exec<BlockSize, Async>>,
+                                                    ExecPolicy<seq_segit, apollo_cuda_exec<BlockSize, Async>>,
                                                     const TypedIndexSet<SegmentTypes...>& iset,
                                                     LoopBody&& loop_body)
 {
@@ -255,7 +225,7 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
     iset.segmentCall(r,
                      isi,
                      detail::CallForall(),
-                     cuda_exec<BlockSize, true>(),
+                     apollo_cuda_exec<BlockSize, true>(),
                      loop_body);
   }  // iterate over segments of index set
 
@@ -263,7 +233,7 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
   return resources::EventProxy<resources::Cuda>(&r);
 }
 
-}  // namespace cuda
+}  // namespace apollo_cuda
 
 }  // namespace policy
 

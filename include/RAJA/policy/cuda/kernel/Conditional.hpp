@@ -68,6 +68,11 @@ struct CudaStatementExecutor<Data,
   {
     return enclosed_stmts_t::calculateDimensions(data);
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    return enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 

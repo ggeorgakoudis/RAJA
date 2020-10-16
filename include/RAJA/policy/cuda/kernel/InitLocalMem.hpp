@@ -129,6 +129,11 @@ struct CudaStatementExecutor<Data,
     return enclosed_stmts_t::calculateDimensions(data);
   }
 
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    enclosed_stmts_t::getFeatures(data, features);
+  }
+
 };
 
 //Intialize thread private array
@@ -216,6 +221,11 @@ struct CudaStatementExecutor<Data, statement::InitLocalMem<RAJA::cuda_thread_mem
   LaunchDims calculateDimensions(Data const &data)
   {
     return enclosed_stmts_t::calculateDimensions(data);
+  }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    enclosed_stmts_t::getFeatures(data, features);
   }
 
 };

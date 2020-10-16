@@ -72,6 +72,11 @@ struct CudaStatementExecutor<Data, statement::CudaSyncThreads, Types> {
   {
     return LaunchDims();
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    return;
+  }
 };
 
 template <typename Data, typename Types>
@@ -92,6 +97,11 @@ struct CudaStatementExecutor<Data, statement::CudaSyncWarp, Types> {
   LaunchDims calculateDimensions(Data const & RAJA_UNUSED_ARG(data))
   {
     return LaunchDims();
+  }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    return;
   }
 };
 

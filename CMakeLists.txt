@@ -227,6 +227,12 @@ if (ENABLE_TBB)
     tbb)
 endif ()
 
+if (ENABLE_APOLLO)
+  set(raja_depends
+  ${raja_depends}
+  apollo)
+endif()
+
 if (NOT TARGET camp)
   set(EXTERNAL_CAMP_SOURCE_DIR "" CACHE FILEPATH "build with a specific external
 camp source repository")

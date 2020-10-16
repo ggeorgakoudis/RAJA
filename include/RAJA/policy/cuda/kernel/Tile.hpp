@@ -113,6 +113,20 @@ struct CudaStatementExecutor<
 
     return enclosed_dims;
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    auto &segment = camp::get<ArgumentId>(data.segment_tuple);
+
+    diff_t chunk_size = TPol::chunk_size;
+
+    // compute trip count
+    diff_t len = segment.end() - segment.begin();
+
+    features.push_back(chunk_size);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 template <typename Data,
@@ -222,6 +236,13 @@ struct CudaStatementExecutor<
 
     return dims.max(enclosed_dims);
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 /*!
@@ -314,6 +335,13 @@ struct CudaStatementExecutor<
 
     return dims.max(enclosed_dims);
   }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
+  }
 };
 
 
@@ -405,6 +433,13 @@ struct CudaStatementExecutor<
       enclosed_stmts_t::calculateDimensions(private_data);
 
     return(dims.max(enclosed_dims));
+  }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
   }
 };
 
@@ -503,6 +538,13 @@ struct CudaStatementExecutor<
       enclosed_stmts_t::calculateDimensions(private_data);
 
     return(dims.max(enclosed_dims));
+  }
+
+  static inline void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    diff_t len = segment_length<ArgumentId>(data);
+    features.push_back(len);
+    enclosed_stmts_t::getFeatures(data, features);
   }
 };
 

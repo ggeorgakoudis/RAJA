@@ -290,6 +290,16 @@ struct CudaStatementListExecutorHelper {
     // Return the maximum of the two
     return statement_dims.max(next_dims);
   }
+
+  template <typename Data>
+  inline static void getFeatures(Data &data, std::vector<float> &features)
+  {
+    // Compute this statements launch dimensions
+    cur_stmt_t::getFeatures(data, features);
+
+    // call the next statement in the list
+    next_helper_t::getFeatures(data, features);
+  }
 };
 
 template <camp::idx_t num_stmts, typename StmtList>
@@ -305,6 +315,12 @@ struct CudaStatementListExecutorHelper<num_stmts, num_stmts, StmtList> {
   inline static LaunchDims calculateDimensions(Data &)
   {
     return LaunchDims();
+  }
+
+  template <typename Data>
+  inline static void getFeatures(Data &, std::vector<float> &)
+  {
+    return;
   }
 };
 
@@ -333,8 +349,6 @@ struct CudaStatementListExecutor<Data, StatementList<Stmts...>, Types> {
     CudaStatementListExecutorHelper<0, num_stmts, enclosed_stmts_t>::exec(data, thread_active);
   }
 
-
-
   static
   inline
   LaunchDims calculateDimensions(Data const &data)
@@ -342,6 +356,12 @@ struct CudaStatementListExecutor<Data, StatementList<Stmts...>, Types> {
     // Compute this statements launch dimensions
     return CudaStatementListExecutorHelper<0, num_stmts, enclosed_stmts_t>::
         calculateDimensions(data);
+  }
+
+  inline static void getFeatures(Data const &data, std::vector<float> &features)
+  {
+    return CudaStatementListExecutorHelper<0, num_stmts, enclosed_stmts_t>::
+        getFeatures(data, features);
   }
 };
 
