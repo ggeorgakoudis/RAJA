@@ -375,16 +375,14 @@ struct StatementExecutor<
         policy_index = apolloRegion->getPolicyIndex(cbdata->context);
 
         // Start from high block sizes to smaller.
-        //size_t num_blocks = num_blocks_policies - (policy_index/num_threads_policies) - 1;
-        size_t num_blocks = launch_dims.num_blocks() / ( 1 << (policy_index/num_threads_policies) );
+        size_t num_blocks = launch_dims.num_blocks() / ( 1 << (policy_index%num_blocks_policies) );
 
-        //size_t num_threads = num_threads_policies - (policy_index/num_blocks_policies) - 1;
-        size_t num_threads = max_threads / ( 1 << (policy_index/num_blocks_policies) );
+        size_t num_threads = max_threads / ( 1 << (policy_index%num_threads_policies) );
 
-        /*std::cout << "policy " << policy_index << " / "
-                  << num_blocks_policies * num_threads_policies
-                  << " num_blocks " << num_blocks << " num_threads "
-                  << num_threads << std::endl;*/
+        //std::cout << "policy " << policy_index << " / "
+        //          << num_blocks_policies * num_threads_policies
+        //          << " num_blocks " << num_blocks << " num_threads "
+        //          << num_threads << std::endl;
         getLaunchDims(num_blocks, num_threads);
 
         launch_t::launch(std::move(cuda_data), launch_dims, shmem, stream);
