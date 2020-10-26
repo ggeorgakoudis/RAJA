@@ -31,7 +31,7 @@
 #include "RAJA/policy/apollo_cuda/forall.hpp"
 #include "RAJA/policy/apollo_cuda/policy.hpp"
 //#include "RAJA/policy/cuda/reduce.hpp"
-//#include "RAJA/policy/cuda/scan.hpp"
+#include "RAJA/policy/apollo_cuda/scan.hpp"
 //#include "RAJA/policy/cuda/sort.hpp"
 #include "RAJA/policy/apollo_cuda/kernel.hpp"
 //#include "RAJA/policy/cuda/synchronize.hpp"
