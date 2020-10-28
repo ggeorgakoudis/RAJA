@@ -424,7 +424,7 @@ struct StatementExecutor<
                   << " num_blocks " << launch_dims.num_blocks()
                   << " -> (" << launch_dims.blocks.x << ", " << launch_dims.blocks.y << ", " << launch_dims.blocks.z << ")"
                   << " num_threads " << launch_dims.num_threads()
-                  << std::endl;
+                  << std::endl;*/
 
         //
         // Privatize the LoopData, using make_launch_body to setup reductions
