@@ -235,7 +235,6 @@ struct ApolloCudaLaunchHelper<cuda_launch<async0, num_blocks, num_threads>,StmtL
       max_blocks = num_blocks;
 
     }
-
   }
 
   static void launch(Data &&data,
@@ -307,54 +306,96 @@ struct StatementExecutor<
       cudaStream_t stream = 0;
 
       //
+      // Compute the recommended physical kernel blocks and threads
+      //
+      size_t recommended_blocks;
+      size_t recommended_threads;
+      launch_t::recommended_blocks_threads(
+          shmem, recommended_blocks, recommended_threads);
+
+
+      //
       // Compute the MAX physical kernel threads
       //
       size_t max_threads;
       launch_t::max_threads(shmem, max_threads);
 
-      auto getLaunchDims = [&](size_t num_blocks, size_t num_threads) {
+
+      //
+      // Fit the requested threads
+      //
+      cuda_dim_t fit_threads{0,0,0};
+
+      if ( recommended_threads >= get_size(launch_dims.min_threads) ) {
+
+        fit_threads = fitCudaDims(
+            recommended_threads, launch_dims.threads, launch_dims.min_threads);
+
+      }
+
+      //
+      // Redo fit with max threads
+      //
+      if ( recommended_threads < max_threads &&
+          get_size(fit_threads) != recommended_threads ) {
+
+        fit_threads = fitCudaDims(
+            max_threads, launch_dims.threads, launch_dims.min_threads);
+
+      }
+
+      launch_dims.threads = fit_threads;
+
+      //
+      // Compute the MAX physical kernel blocks
+      //
+      size_t max_blocks;
+      launch_t::max_blocks(shmem, max_blocks, launch_dims.num_threads());
+
+      size_t use_blocks;
+
+      if ( launch_dims.num_threads() == recommended_threads ) {
+
         //
-        // Fit the requested threads
+        // Fit the requested blocks
         //
-        cuda_dim_t fit_threads{0, 0, 0};
+        use_blocks = recommended_blocks;
 
-        //fit_threads = fitCudaDims(max_threads,
-        fit_threads =
-            fitCudaDims(num_threads < max_threads ? num_threads : max_threads,
-                        launch_dims.threads,
-                        launch_dims.min_threads);
+      } else {
 
-        launch_dims.threads = fit_threads;
+        //
+        // Fit the max blocks
+        //
+        use_blocks = max_blocks;
 
-        launch_dims.blocks =
-            fitCudaDims(num_blocks, launch_dims.blocks, launch_dims.min_blocks);
-      };
+      }
+
+      launch_dims.blocks = fitCudaDims(
+          use_blocks, launch_dims.blocks, launch_dims.min_blocks);
+
+      //
+      // make sure that we fit
+      //
+      /* Doesn't make sense to check this anymore - AJK
+      if(launch_dims.num_blocks() > max_blocks){
+        RAJA_ABORT_OR_THROW("RAJA::kernel exceeds max num blocks");
+      }*/
+      if(launch_dims.num_threads() > max_threads){
+        RAJA_ABORT_OR_THROW("RAJA::kernel exceeds max num threads");
+      }
 
       {
-        //
-        // Privatize the LoopData, using make_launch_body to setup reductions
-        //
-        auto cuda_data = RAJA::cuda::make_launch_body(
-            launch_dims.blocks, launch_dims.threads, shmem, stream, data);
-
-
-        //
-        // Launch the kernels
-        //
-
         int policy_index = 0;
         static int num_blocks_policies;
-        static int num_threads_policies;
         if (apolloRegion == nullptr) {
             // one-time initialization
             std::string code_location = apollo->getCallpathOffset();
             //num_blocks_policies = std::ceil(std::log2(launch_dims.num_blocks()));
             num_blocks_policies = 4;
-            num_threads_policies = 4;
             apolloRegion =
                 new Apollo::Region(features->size(),
                                    code_location.c_str(),
-                                   num_blocks_policies * num_threads_policies);
+                                   num_blocks_policies);
         }
 
         ApolloCallbackHelper::callback_t *cbdata = new ApolloCallbackHelper::callback_t();
@@ -374,18 +415,28 @@ struct StatementExecutor<
 
         policy_index = apolloRegion->getPolicyIndex(cbdata->context);
 
-        // Start from high block sizes to smaller.
         size_t num_blocks = launch_dims.num_blocks() / ( 1 << (policy_index%num_blocks_policies) );
+        launch_dims.blocks =
+            fitCudaDims(num_blocks, launch_dims.blocks, launch_dims.min_blocks);
 
-        size_t num_threads = max_threads / ( 1 << (policy_index%num_threads_policies) );
+        /*std::cout << "policy " << policy_index << " / "
+                  << num_blocks_policies
+                  << " num_blocks " << launch_dims.num_blocks()
+                  << " -> (" << launch_dims.blocks.x << ", " << launch_dims.blocks.y << ", " << launch_dims.blocks.z << ")"
+                  << " num_threads " << launch_dims.num_threads()
+                  << std::endl;
 
-        //std::cout << "policy " << policy_index << " / "
-        //          << num_blocks_policies * num_threads_policies
-        //          << " num_blocks " << num_blocks << " num_threads "
-        //          << num_threads << std::endl;
-        getLaunchDims(num_blocks, num_threads);
+        //
+        // Privatize the LoopData, using make_launch_body to setup reductions
+        //
+        auto cuda_data = RAJA::cuda::make_launch_body(
+            launch_dims.blocks, launch_dims.threads, shmem, stream, data);
 
+        //
+        // Launch the kernels
+        //
         launch_t::launch(std::move(cuda_data), launch_dims, shmem, stream);
+        // Add callback function to record execution time for the Apollo region
         cudaLaunchHostFunc(stream, ApolloCallbackHelper::callbackFunction, cbdata);
       }
 

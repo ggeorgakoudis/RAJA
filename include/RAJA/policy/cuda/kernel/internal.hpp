@@ -240,7 +240,7 @@ void cuda_occupancy_max_blocks(Func&& func, int shmem_size,
 
     data.max_blocks = max_blocks;
 
-    if (data.multiProcessorCount < 0) {
+    if (data.multiProcessorCount <= 0) {
 
       data.multiProcessorCount = cuda::device_prop().multiProcessorCount;
 
