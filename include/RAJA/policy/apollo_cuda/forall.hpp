@@ -124,7 +124,7 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
   IndexType len = std::distance(begin, end);
 
   // Only launch kernel if we have something to iterate over
-  if (len > 0 /*&& BlockSize > 0*/) {
+  if (len > 0 && BlockSize > 0) {
     int policy_index = 0;
     static int ApolloBlockSize_policies;
     if (apolloRegion == nullptr) {
@@ -145,7 +145,8 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
 
     policy_index = apolloRegion->getPolicyIndex(cbdata->context);
 
-    cuda_dim_member_t ApolloBlockSize = 1024 / ( 1 << (policy_index) );
+    cuda_dim_member_t ApolloBlockSize = BlockSize / ( 1 << (policy_index) );
+    ApolloBlockSize = (ApolloBlockSize > 1) ? ApolloBlockSize : 1;
 
     auto func = impl::forall_apollo_cuda_kernel<Iterator, LOOP_BODY, IndexType>;
 
