@@ -148,7 +148,14 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
                          static_cast<float>(attr.numRegs),
                          static_cast<float>(attr.sharedSizeBytes)};
 
-        apolloRegion = new Apollo::Region(1 + func_features.size(),
+        assert((func_features.size() + 1) <=
+               APOLLO_CUDA_MAX_NUM_FEATURES);
+        // Pad 0s.
+        int paddings = APOLLO_CUDA_MAX_NUM_FEATURES -
+                       (func_features.size() + 1);
+        func_features.resize(func_features.size() + paddings, 0.0f);
+
+        apolloRegion = new Apollo::Region(APOLLO_CUDA_MAX_NUM_FEATURES,
                                           code_location.c_str(),
                                           ApolloBlockSize_policies);
     }

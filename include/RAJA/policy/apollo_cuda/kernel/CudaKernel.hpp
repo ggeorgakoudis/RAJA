@@ -413,8 +413,15 @@ struct StatementExecutor<
             num_blocks_policies = 4;
             func_features = launch_t::get_func_features();
 
+            assert((func_features.size() + features->size()) <=
+                   APOLLO_CUDA_MAX_NUM_FEATURES);
+            // Pad 0s.
+            int paddings = APOLLO_CUDA_MAX_NUM_FEATURES -
+                           (func_features.size() + features->size());
+            func_features.resize(func_features.size() + paddings, 0.0f);
+
             apolloRegion =
-                new Apollo::Region(features->size() + func_features.size(),
+                new Apollo::Region(APOLLO_CUDA_MAX_NUM_FEATURES,
                                    code_location.c_str(),
                                    num_blocks_policies);
         }

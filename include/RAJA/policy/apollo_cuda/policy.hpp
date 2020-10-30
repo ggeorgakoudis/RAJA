@@ -56,6 +56,8 @@ using policy::cuda::apollo_cuda_exec;
 template <size_t BLOCK_SIZE>
 using apollo_cuda_exec_async = policy::cuda::apollo_cuda_exec<BLOCK_SIZE, true>;
 
+constexpr int APOLLO_CUDA_MAX_NUM_FEATURES = 32;
+
 }  // namespace RAJA
 
 #endif  // RAJA_ENABLE_CUDA && RAJA_ENABLE_APOLLO
