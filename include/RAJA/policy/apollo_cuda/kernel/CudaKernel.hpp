@@ -247,6 +247,24 @@ struct ApolloCudaLaunchHelper<cuda_launch<async0, num_blocks, num_threads>,StmtL
     void *args[] = {(void*)&data};
     RAJA::cuda::launch((const void*)func, launch_dims.blocks, launch_dims.threads, args, shmem, stream);
   }
+
+  static std::vector<float> get_func_features()
+  {
+    auto func = kernelGetter_t::get();
+
+    cudaFuncAttributes attr;
+    cudaFuncGetAttributes(&attr, func);
+    // TODO: remove printout comments
+    /*std::cout << "constSizeBytes " << attr.constSizeBytes << std::endl;
+    std::cout << "localSizeBytes " << attr.localSizeBytes << std::endl;
+    std::cout << "numRegs" << attr.numRegs << std::endl;
+    std::cout << "sharedSizeBytes " << attr.sharedSizeBytes << std::endl;*/
+
+    return {static_cast<float>(attr.constSizeBytes),
+            static_cast<float>(attr.localSizeBytes),
+            static_cast<float>(attr.numRegs),
+            static_cast<float>(attr.sharedSizeBytes)};
+  }
 };
 
 struct ApolloCallbackHelper {
@@ -387,20 +405,25 @@ struct StatementExecutor<
       {
         int policy_index = 0;
         static int num_blocks_policies;
+        static std::vector<float> func_features;
         if (apolloRegion == nullptr) {
             // one-time initialization
             std::string code_location = apollo->getCallpathOffset();
             //num_blocks_policies = std::ceil(std::log2(launch_dims.num_blocks()));
             num_blocks_policies = 4;
+            func_features = launch_t::get_func_features();
+
             apolloRegion =
-                new Apollo::Region(features->size(),
+                new Apollo::Region(features->size() + func_features.size(),
                                    code_location.c_str(),
                                    num_blocks_policies);
         }
 
-        ApolloCallbackHelper::callback_t *cbdata = new ApolloCallbackHelper::callback_t();
+        ApolloCallbackHelper::callback_t *cbdata =
+            new ApolloCallbackHelper::callback_t();
         cbdata->apollo = apollo;
         cbdata->region = apolloRegion;
+        features->insert( features->begin(), func_features.begin(), func_features.end() );
         cbdata->context = apolloRegion->begin( *features );
         delete features;
         /*

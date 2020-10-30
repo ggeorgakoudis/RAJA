@@ -125,30 +125,47 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
 
   // Only launch kernel if we have something to iterate over
   if (len > 0 && BlockSize > 0) {
+    auto func = impl::forall_apollo_cuda_kernel<Iterator, LOOP_BODY, IndexType>;
+
     int policy_index = 0;
     static int ApolloBlockSize_policies;
+    static std::vector<float> func_features;
     if (apolloRegion == nullptr) {
         // one-time initialization
         std::string code_location = apollo->getCallpathOffset();
         ApolloBlockSize_policies = 4;
-        apolloRegion =
-            new Apollo::Region(
-              1,
-              code_location.c_str(),
-              ApolloBlockSize_policies);
+        cudaFuncAttributes attr;
+        cudaFuncGetAttributes(&attr, func);
+
+        // TODO: remove printout comments
+        /*std::cout << "constSizeBytes " << attr.constSizeBytes << std::endl;
+        std::cout << "localSizeBytes " << attr.localSizeBytes << std::endl;
+        std::cout << "numRegs " << attr.numRegs << std::endl;
+        std::cout << "sharedSizeBytes " << attr.sharedSizeBytes << std::endl;*/
+
+        func_features = {static_cast<float>(attr.constSizeBytes),
+                         static_cast<float>(attr.localSizeBytes),
+                         static_cast<float>(attr.numRegs),
+                         static_cast<float>(attr.sharedSizeBytes)};
+
+        apolloRegion = new Apollo::Region(1 + func_features.size(),
+                                          code_location.c_str(),
+                                          ApolloBlockSize_policies);
     }
 
-    ApolloCallbackHelper::callback_t *cbdata = new ApolloCallbackHelper::callback_t();
+    ApolloCallbackHelper::callback_t *cbdata =
+        new ApolloCallbackHelper::callback_t();
     cbdata->apollo = apollo;
     cbdata->region = apolloRegion;
-    cbdata->context = apolloRegion->begin( { static_cast<float>(len) } );
+
+    std::vector<float> features( { static_cast<float>(len) });
+    features.insert( features.begin(), func_features.begin(), func_features.end() );
+    cbdata->context = apolloRegion->begin( features );
 
     policy_index = apolloRegion->getPolicyIndex(cbdata->context);
 
     cuda_dim_member_t ApolloBlockSize = BlockSize / ( 1 << (policy_index) );
     ApolloBlockSize = (ApolloBlockSize > 1) ? ApolloBlockSize : 1;
-
-    auto func = impl::forall_apollo_cuda_kernel<Iterator, LOOP_BODY, IndexType>;
 
     //
     // Compute the number of blocks
