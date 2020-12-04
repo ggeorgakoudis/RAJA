@@ -98,6 +98,7 @@ using ApolloCudaKernelAsync = ApolloCudaKernelFixedAsync<1024, EnclosedStmts...>
 namespace internal
 {
 
+
 /*!
  * Helper class that handles CUDA kernel launching, and computing
  * maximum number of threads/blocks
@@ -267,21 +268,6 @@ struct ApolloCudaLaunchHelper<cuda_launch<async0, num_blocks, num_threads>,StmtL
   }
 };
 
-struct ApolloCallbackHelper {
-  struct callback_t {
-    Apollo::Apollo *apollo;
-    Apollo::Region *region;
-    Apollo::RegionContext *context;
-  };
-
-  static void callbackFunction(void *data)
-  {
-    callback_t *cbdata = reinterpret_cast<callback_t *>(data);
-    cbdata->region->end(cbdata->context);
-    delete cbdata;
-  }
-};
-
 /*!
  * Specialization that launches CUDA kernels for RAJA::kernel from host code
  */
@@ -406,8 +392,10 @@ struct StatementExecutor<
         int policy_index = 0;
         static int num_blocks_policies;
         static std::vector<float> func_features;
+        static RAJA::apollo_cuda::ApolloCallbackDataPool *callback_pool;
         if (apolloRegion == nullptr) {
             // one-time initialization
+            callback_pool = new RAJA::apollo_cuda::ApolloCallbackDataPool(64, 64);
             std::string code_location = apollo->getCallpathOffset();
             //num_blocks_policies = std::ceil(std::log2(launch_dims.num_blocks()));
             num_blocks_policies = 4;
@@ -423,27 +411,16 @@ struct StatementExecutor<
             apolloRegion =
                 new Apollo::Region(APOLLO_CUDA_MAX_NUM_FEATURES,
                                    code_location.c_str(),
-                                   num_blocks_policies);
+                                   num_blocks_policies,
+                                   callback_pool);
         }
 
-        ApolloCallbackHelper::callback_t *cbdata =
-            new ApolloCallbackHelper::callback_t();
-        cbdata->apollo = apollo;
-        cbdata->region = apolloRegion;
+        RAJA::apollo_cuda::ApolloCallbackDataPool::callback_t *cbdata = callback_pool->get();
         features->insert( features->begin(), func_features.begin(), func_features.end() );
-        cbdata->context = apolloRegion->begin( *features );
+        Apollo::RegionContext *context = apolloRegion->begin( *features );
         delete features;
-        /*
-        cbdata->context = apolloRegion->begin(
-            {(float)launch_dims.blocks.x,
-             (float)launch_dims.blocks.y,
-             (float)launch_dims.blocks.z,
-             (float)launch_dims.threads.x,
-             (float)launch_dims.threads.y,
-             (float)launch_dims.threads.z});
-        */
 
-        policy_index = apolloRegion->getPolicyIndex(cbdata->context);
+        policy_index = apolloRegion->getPolicyIndex(context);
 
         size_t num_blocks = launch_dims.num_blocks() / ( 1 << (policy_index%num_blocks_policies) );
         launch_dims.blocks =
@@ -465,9 +442,12 @@ struct StatementExecutor<
         //
         // Launch the kernels
         //
+        cudaEventRecord(cbdata->start, stream);
         launch_t::launch(std::move(cuda_data), launch_dims, shmem, stream);
-        // Add callback function to record execution time for the Apollo region
-        cudaLaunchHostFunc(stream, ApolloCallbackHelper::callbackFunction, cbdata);
+        cudaEventRecord(cbdata->stop, stream);
+        apolloRegion->end(context,
+                          RAJA::apollo_cuda::ApolloCallbackHelper::isDoneCallback,
+                          cbdata);
       }
 
       //

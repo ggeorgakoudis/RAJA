@@ -86,21 +86,6 @@ template <typename Iterator,
 ////////////////////////////////////////////////////////////////////////
 //
 
-struct ApolloCallbackHelper {
-  struct callback_t {
-    Apollo::Apollo *apollo;
-    Apollo::Region *region;
-    Apollo::RegionContext *context;
-  };
-
-  static void callbackFunction(void *data)
-  {
-    callback_t *cbdata = reinterpret_cast<callback_t *>(data);
-    cbdata->region->end(cbdata->context);
-    delete cbdata;
-  }
-};
-
 template <typename Iterable, typename LoopBody, size_t BlockSize, bool Async>
 RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &cuda_res,
                                                     apollo_cuda_exec<BlockSize, Async>,
@@ -130,7 +115,9 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
     int policy_index = 0;
     static int ApolloBlockSize_policies;
     static std::vector<float> func_features;
+    static RAJA::apollo_cuda::ApolloCallbackDataPool *callback_pool;
     if (apolloRegion == nullptr) {
+        callback_pool = new RAJA::apollo_cuda::ApolloCallbackDataPool(64, 64);
         // one-time initialization
         std::string code_location = apollo->getCallpathOffset();
         ApolloBlockSize_policies = 4;
@@ -157,19 +144,17 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
 
         apolloRegion = new Apollo::Region(APOLLO_CUDA_MAX_NUM_FEATURES,
                                           code_location.c_str(),
-                                          ApolloBlockSize_policies);
+                                          ApolloBlockSize_policies,
+                                          callback_pool);
     }
 
-    ApolloCallbackHelper::callback_t *cbdata =
-        new ApolloCallbackHelper::callback_t();
-    cbdata->apollo = apollo;
-    cbdata->region = apolloRegion;
+    RAJA::apollo_cuda::ApolloCallbackDataPool::callback_t *cbdata = callback_pool->get();
 
     std::vector<float> features( { static_cast<float>(len) });
     features.insert( features.begin(), func_features.begin(), func_features.end() );
-    cbdata->context = apolloRegion->begin( features );
+    Apollo::RegionContext *context = apolloRegion->begin( features );
 
-    policy_index = apolloRegion->getPolicyIndex(cbdata->context);
+    policy_index = apolloRegion->getPolicyIndex(context);
 
     cuda_dim_member_t ApolloBlockSize = BlockSize / ( 1 << (policy_index) );
     ApolloBlockSize = (ApolloBlockSize > 1) ? ApolloBlockSize : 1;
@@ -205,8 +190,11 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
       // Launch the kernels
       //
       void *args[] = {(void*)&body, (void*)&begin, (void*)&len};
-      RAJA::cuda::launch((const void*)func, gridSize, blockSize, args, shmem, stream);
-      cudaLaunchHostFunc(stream, ApolloCallbackHelper::callbackFunction, cbdata);
+      cudaEventRecord(cbdata->start, stream);
+      RAJA::cuda::launch(
+          (const void *)func, gridSize, blockSize, args, shmem, stream);
+      cudaEventRecord(cbdata->stop, stream);
+      apolloRegion->end(context, RAJA::apollo_cuda::ApolloCallbackHelper::isDoneCallback, cbdata);
     }
 
     if (!Async) { RAJA::cuda::synchronize(stream); }
