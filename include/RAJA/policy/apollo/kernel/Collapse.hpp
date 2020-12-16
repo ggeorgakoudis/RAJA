@@ -48,8 +48,6 @@
 
 #include "RAJA/policy/apollo/policy.hpp"
 
-#include "RAJA/internal/LegacyCompatibility.hpp"
-
 #if !defined(RAJA_COMPILER_MSVC)
 #define RAJA_COLLAPSE(X) collapse(X)
 #else
@@ -75,10 +73,10 @@ namespace internal
 // Collapsing two loops
 /////////
 
-template <camp::idx_t Arg0, camp::idx_t Arg1, typename... EnclosedStmts>
+template <camp::idx_t Arg0, camp::idx_t Arg1, typename... EnclosedStmts, typename Types>
 struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                                              ArgList<Arg0, Arg1>,
-                                             EnclosedStmts...>> {
+                                             EnclosedStmts...>, Types> {
 
 
   template <typename Data>
@@ -88,7 +86,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       static Apollo::Region *apolloRegion       = nullptr;
       static int             policy_index       = 0;
       using RAJA::policy::apollo::POLICY_COUNT;
-      static int             num_threads[POLICY_COUNT] = { 0 };
+      static int max_num_threads = std::min( omp_get_num_procs(), omp_get_thread_limit() );
       if (apolloRegion == nullptr) {
           std::string code_location = apollo->getCallpathOffset();
           apolloRegion = new Apollo::Region(
@@ -96,29 +94,6 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                   code_location.c_str(), // region uid
                   POLICY_COUNT // num policies
                   );
-          // Set the range of thread counts we want to make available for
-          // bootstrapping and use by this Apollo::Region.
-          num_threads[0] = apollo->ompDefaultNumThreads;
-          num_threads[1] = 1;
-
-          num_threads[2] = std::max(2, apollo->numThreadsPerProcCap);
-          num_threads[3] = std::min(32, std::max(2, apollo->numThreadsPerProcCap));
-          num_threads[4] = std::min(16, std::max(2, (int)(apollo->numThreadsPerProcCap * 0.75)));
-          num_threads[5] = std::min(8,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.50)));
-          num_threads[6] = std::min(4,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.25)));
-          num_threads[7] = 2;
-          num_threads[8] = std::max(2, apollo->numThreadsPerProcCap);
-          num_threads[9] = std::min(32, std::max(2, apollo->numThreadsPerProcCap));
-          num_threads[10] = std::min(16, std::max(2, (int)(apollo->numThreadsPerProcCap * 0.75)));
-          num_threads[11] = std::min(8,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.50)));
-          num_threads[12] = std::min(4,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.25)));
-          num_threads[13] = 2;
-          num_threads[14] = std::max(2, apollo->numThreadsPerProcCap);
-          num_threads[15] = std::min(32, std::max(2, apollo->numThreadsPerProcCap));
-          num_threads[16] = std::min(16, std::max(2, (int)(apollo->numThreadsPerProcCap * 0.75)));
-          num_threads[17] = std::min(8,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.50)));
-          num_threads[18] = std::min(4,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.25)));
-          num_threads[19] = 2;
       }
       const auto l0 = segment_length<Arg0>(data);
       const auto l1 = segment_length<Arg1>(data);
@@ -127,6 +102,10 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       // essentially identical
       auto i0 = l0;
       auto i1 = l1;
+
+      // Set the argument types for this loop
+      using NewTypes0 = setSegmentTypeFromData<Types, Arg0, Data>;
+      using NewTypes1 = setSegmentTypeFromData<NewTypes0, Arg1, Data>;
 
       using RAJA::internal::thread_privatize;
       auto privatizer = thread_privatize(data);
@@ -149,34 +128,29 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                           auto& private_data = privatizer.get_priv();
                           private_data.template assign_offset<Arg0>(i0);
                           private_data.template assign_offset<Arg1>(i1);
-                          execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                          execute_statement_list<camp::list<EnclosedStmts...>, NewTypes1>(private_data);
                       }
                   }
                   break;
               }
           case 1:
               {
-                  //std::cout << "Sequential" << std::endl; //ggout
+                  //std::cout << "2-level Sequential" << std::endl; //ggout
                   for (i0 = 0; i0 < l0; ++i0) {
                       for (i1 = 0; i1 < l1; ++i1) {
                           auto& private_data = privatizer.get_priv();
                           private_data.template assign_offset<Arg0>(i0);
                           private_data.template assign_offset<Arg1>(i1);
-                          execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                          execute_statement_list<camp::list<EnclosedStmts...>, NewTypes1>(private_data);
                       }
                   }
                   break;
               }
-          case 2:
-          case 3:
-          case 4:
-          case 5:
-          case 6:
-          case 7:
+          case 2: case 3: case 4: case 5: case 6: case 7:
               {
-                  //std::cout << "OMP static num_threads:" << num_threads[policy_index] << std::endl; //ggout
-#pragma omp parallel for private(i0, i1) firstprivate(privatizer) \
-                  num_threads( num_threads[ policy_index ] ) \
+                  //std::cout << "2-level Static num_threads " << ( max_num_threads >> ( policy_index - 2) ) << std::endl;
+                  #pragma omp parallel for private(i0, i1) firstprivate(privatizer) \
+                  num_threads( max_num_threads >> ( policy_index - 2) ) \
                   schedule(static) \
                   RAJA_COLLAPSE(2)
                   for (i0 = 0; i0 < l0; ++i0) {
@@ -184,21 +158,16 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                           auto& private_data = privatizer.get_priv();
                           private_data.template assign_offset<Arg0>(i0);
                           private_data.template assign_offset<Arg1>(i1);
-                          execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                          execute_statement_list<camp::list<EnclosedStmts...>, NewTypes1>(private_data);
                       }
                   }
                   break;
               }
-          case 8:
-          case 9:
-          case 10:
-          case 11:
-          case 12:
-          case 13:
+          case 8: case 9: case 10: case 11: case 12: case 13:
               {
-                  //std::cout << "OMP dynamic num_threads:" << num_threads[policy_index] << std::endl; //ggout
+                  //std::cout << "2-level Dynamic num_threads " << ( max_num_threads >> ( policy_index - 8) ) << std::endl;
 #pragma omp parallel for private(i0, i1) firstprivate(privatizer) \
-                  num_threads( num_threads[ policy_index ] ) \
+                  num_threads( max_num_threads >> ( policy_index - 8) ) \
                   schedule(dynamic) \
                   RAJA_COLLAPSE(2)
                   for (i0 = 0; i0 < l0; ++i0) {
@@ -206,21 +175,16 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                           auto& private_data = privatizer.get_priv();
                           private_data.template assign_offset<Arg0>(i0);
                           private_data.template assign_offset<Arg1>(i1);
-                          execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                          execute_statement_list<camp::list<EnclosedStmts...>, NewTypes1>(private_data);
                       }
                   }
                   break;
               }
-          case 14:
-          case 15:
-          case 16:
-          case 17:
-          case 18:
-          case 19:
+          case 14: case 15: case 16: case 17: case 18: case 19:
               {
-                  //std::cout << "OMP guided num_threads:" << num_threads[policy_index] << std::endl; //ggout
+                  //std::cout << "2-level Guided num_threads " << ( max_num_threads >> ( policy_index - 14) ) << std::endl;
 #pragma omp parallel for private(i0, i1) firstprivate(privatizer) \
-                  num_threads( num_threads[ policy_index ] ) \
+                  num_threads( max_num_threads >> ( policy_index - 14) ) \
                   schedule(guided) \
                   RAJA_COLLAPSE(2)
                   for (i0 = 0; i0 < l0; ++i0) {
@@ -228,7 +192,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                           auto& private_data = privatizer.get_priv();
                           private_data.template assign_offset<Arg0>(i0);
                           private_data.template assign_offset<Arg1>(i1);
-                          execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                          execute_statement_list<camp::list<EnclosedStmts...>, NewTypes1>(private_data);
                       }
                   }
                   break;
@@ -243,10 +207,11 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
 template <camp::idx_t Arg0,
           camp::idx_t Arg1,
           camp::idx_t Arg2,
-          typename... EnclosedStmts>
+          typename... EnclosedStmts,
+          typename Types>
 struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                                              ArgList<Arg0, Arg1, Arg2>,
-                                             EnclosedStmts...>> {
+                                             EnclosedStmts...>, Types> {
 
 
   template <typename Data>
@@ -256,7 +221,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       static Apollo::Region *apolloRegion       = nullptr;
       static int             policy_index       = 0;
       using RAJA::policy::apollo::POLICY_COUNT;
-      static int             num_threads[POLICY_COUNT] = { 0 };
+      static int max_num_threads = std::min( omp_get_num_procs(), omp_get_thread_limit() );
       if (apolloRegion == nullptr) {
           std::string code_location = apollo->getCallpathOffset();
           apolloRegion = new Apollo::Region(
@@ -264,29 +229,6 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                   code_location.c_str(), // region uid
                   POLICY_COUNT // num policies
                   );
-          // Set the range of thread counts we want to make available for
-          // bootstrapping and use by this Apollo::Region.
-          num_threads[0] = apollo->ompDefaultNumThreads;
-          num_threads[1] = 1;
-
-          num_threads[2] = std::max(2, apollo->numThreadsPerProcCap);
-          num_threads[3] = std::min(32, std::max(2, apollo->numThreadsPerProcCap));
-          num_threads[4] = std::min(16, std::max(2, (int)(apollo->numThreadsPerProcCap * 0.75)));
-          num_threads[5] = std::min(8,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.50)));
-          num_threads[6] = std::min(4,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.25)));
-          num_threads[7] = 2;
-          num_threads[8] = std::max(2, apollo->numThreadsPerProcCap);
-          num_threads[9] = std::min(32, std::max(2, apollo->numThreadsPerProcCap));
-          num_threads[10] = std::min(16, std::max(2, (int)(apollo->numThreadsPerProcCap * 0.75)));
-          num_threads[11] = std::min(8,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.50)));
-          num_threads[12] = std::min(4,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.25)));
-          num_threads[13] = 2;
-          num_threads[14] = std::max(2, apollo->numThreadsPerProcCap);
-          num_threads[15] = std::min(32, std::max(2, apollo->numThreadsPerProcCap));
-          num_threads[16] = std::min(16, std::max(2, (int)(apollo->numThreadsPerProcCap * 0.75)));
-          num_threads[17] = std::min(8,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.50)));
-          num_threads[18] = std::min(4,  std::max(2, (int)(apollo->numThreadsPerProcCap * 0.25)));
-          num_threads[19] = 2;
       }
 
       const auto l0 = segment_length<Arg0>(data);
@@ -295,6 +237,11 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       auto i0 = l0;
       auto i1 = l1;
       auto i2 = l2;
+
+      // Set the argument types for this loop
+      using NewTypes0 = setSegmentTypeFromData<Types, Arg0, Data>;
+      using NewTypes1 = setSegmentTypeFromData<NewTypes0, Arg1, Data>;
+      using NewTypes2 = setSegmentTypeFromData<NewTypes1, Arg2, Data>;
 
       using RAJA::internal::thread_privatize;
       auto privatizer = thread_privatize(data);
@@ -320,7 +267,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                               private_data.template assign_offset<Arg0>(i0);
                               private_data.template assign_offset<Arg1>(i1);
                               private_data.template assign_offset<Arg2>(i2);
-                              execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                              execute_statement_list<camp::list<EnclosedStmts...>, NewTypes2>(private_data);
                           }
                       }
                   }
@@ -336,22 +283,17 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                               private_data.template assign_offset<Arg0>(i0);
                               private_data.template assign_offset<Arg1>(i1);
                               private_data.template assign_offset<Arg2>(i2);
-                              execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                              execute_statement_list<camp::list<EnclosedStmts...>, NewTypes2>(private_data);
                           }
                       }
                   }
                   break;
               }
-          case 2:
-          case 3:
-          case 4:
-          case 5:
-          case 6:
-          case 7:
+          case 2: case 3: case 4: case 5: case 6: case 7:
               {
-                  //std::cout << "OMP static num_threads:" << num_threads[policy_index] << std::endl; //ggout
+                  //std::cout << "3-level Static num_threads " << ( max_num_threads >> ( policy_index - 2) ) << std::endl;
 #pragma omp parallel for private(i0, i1, i2) firstprivate(privatizer) \
-                  num_threads( num_threads[ policy_index ] ) \
+                  num_threads( max_num_threads >> ( policy_index - 2) ) \
                   schedule(static) \
                   RAJA_COLLAPSE(3)
                   for (i0 = 0; i0 < l0; ++i0) {
@@ -361,22 +303,17 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                               private_data.template assign_offset<Arg0>(i0);
                               private_data.template assign_offset<Arg1>(i1);
                               private_data.template assign_offset<Arg2>(i2);
-                              execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                              execute_statement_list<camp::list<EnclosedStmts...>, NewTypes2>(private_data);
                           }
                       }
                   }
                   break;
               }
-          case 8:
-          case 9:
-          case 10:
-          case 11:
-          case 12:
-          case 13:
+          case 8: case 9: case 10: case 11: case 12: case 13:
               {
-                  //std::cout << "OMP dynamic num_threads:" << num_threads[policy_index] << std::endl; //ggout
+                  //std::cout << "3-level Dynamic num_threads " << ( max_num_threads >> ( policy_index - 8) ) << std::endl;
 #pragma omp parallel for private(i0, i1, i2) firstprivate(privatizer) \
-                  num_threads( num_threads[ policy_index ] ) \
+                  num_threads( max_num_threads >> ( policy_index - 8) ) \
                   schedule(dynamic) \
                   RAJA_COLLAPSE(3)
                   for (i0 = 0; i0 < l0; ++i0) {
@@ -386,22 +323,17 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                               private_data.template assign_offset<Arg0>(i0);
                               private_data.template assign_offset<Arg1>(i1);
                               private_data.template assign_offset<Arg2>(i2);
-                              execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                              execute_statement_list<camp::list<EnclosedStmts...>, NewTypes2>(private_data);
                           }
                       }
                   }
                   break;
               }
-          case 14:
-          case 15:
-          case 16:
-          case 17:
-          case 18:
-          case 19:
+          case 14: case 15: case 16: case 17: case 18: case 19:
               {
-                  //std::cout << "OMP guided num_threads:" << num_threads[policy_index] << std::endl; //ggout
+                  //std::cout << "3-level Guided num_threads " << ( max_num_threads >> ( policy_index - 14) ) << std::endl;
 #pragma omp parallel for private(i0, i1, i2) firstprivate(privatizer) \
-                  num_threads( num_threads[ policy_index ] ) \
+                  num_threads( max_num_threads >> ( policy_index - 14) ) \
                   schedule(guided) \
                   RAJA_COLLAPSE(3)
                   for (i0 = 0; i0 < l0; ++i0) {
@@ -411,7 +343,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
                               private_data.template assign_offset<Arg0>(i0);
                               private_data.template assign_offset<Arg1>(i1);
                               private_data.template assign_offset<Arg2>(i2);
-                              execute_statement_list<camp::list<EnclosedStmts...>>(private_data);
+                              execute_statement_list<camp::list<EnclosedStmts...>, NewTypes2>(private_data);
                           }
                       }
                   }

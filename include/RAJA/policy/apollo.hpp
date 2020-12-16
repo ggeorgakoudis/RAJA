@@ -27,6 +27,7 @@
 #define RAJA_apollo_HPP
 
 #include "RAJA/policy/apollo/forall.hpp"
+#include "RAJA/policy/apollo/kernel.hpp"
 #include "RAJA/policy/apollo/policy.hpp"
 #include "RAJA/policy/apollo/scan.hpp"
 
