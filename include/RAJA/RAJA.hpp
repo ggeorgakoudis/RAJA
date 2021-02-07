@@ -91,6 +91,10 @@
 
 #endif
 
+#if defined(RAJA_ENABLE_APOLLO)
+#include "RAJA/policy/apollo_multi.hpp"
+#endif
+
 #include "RAJA/index/IndexSet.hpp"
 
 //

@@ -86,7 +86,7 @@ RAJA_INLINE resources::EventProxy<resources::Host> forall_impl(resources::Host &
     static Apollo         *apollo             = Apollo::instance();
     static Apollo::Region *apolloRegion       = nullptr;
     static int             policy_index       = 0;
-    static int max_num_threads = std::min( omp_get_num_procs(), omp_get_thread_limit() );
+    static int max_num_threads = std::min( omp_get_max_threads(), omp_get_thread_limit() );
     if (apolloRegion == nullptr) {
         std::string code_location = apollo->getCallpathOffset();
         apolloRegion = new Apollo::Region(

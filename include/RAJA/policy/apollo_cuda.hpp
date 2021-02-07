@@ -63,7 +63,7 @@ struct callback_t {
     }
   }
 
-  callback_t *get() {
+  void *get() override {
     if(pool.empty())
       expand(expand_size);
 
@@ -72,7 +72,8 @@ struct callback_t {
     return cbdata;
   }
 
-  void put(callback_t *cbdata) {
+  void put(void *data) override {
+    callback_t *cbdata = reinterpret_cast<callback_t *>(data);
     pool.push_back(cbdata);
   }
 

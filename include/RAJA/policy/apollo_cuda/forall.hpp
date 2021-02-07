@@ -148,7 +148,9 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
                                           callback_pool);
     }
 
-    RAJA::apollo_cuda::ApolloCallbackDataPool::callback_t *cbdata = callback_pool->get();
+    using callback_t = RAJA::apollo_cuda::ApolloCallbackDataPool::callback_t;
+    callback_t *cbdata =
+        reinterpret_cast<callback_t *>(callback_pool->get());
 
     std::vector<float> features( { static_cast<float>(len) });
     features.insert( features.begin(), func_features.begin(), func_features.end() );
@@ -194,7 +196,7 @@ RAJA_INLINE resources::EventProxy<resources::Cuda> forall_impl(resources::Cuda &
       RAJA::cuda::launch(
           (const void *)func, gridSize, blockSize, args, shmem, stream);
       cudaEventRecord(cbdata->stop, stream);
-      apolloRegion->end(context, RAJA::apollo_cuda::ApolloCallbackHelper::isDoneCallback, cbdata);
+      apolloRegion->end(context);
     }
 
     if (!Async) { RAJA::cuda::synchronize(stream); }

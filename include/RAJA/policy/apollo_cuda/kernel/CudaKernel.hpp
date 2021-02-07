@@ -415,7 +415,10 @@ struct StatementExecutor<
                                    callback_pool);
         }
 
-        RAJA::apollo_cuda::ApolloCallbackDataPool::callback_t *cbdata = callback_pool->get();
+        using callback_t =
+            RAJA::apollo_cuda::ApolloCallbackDataPool::callback_t;
+        callback_t *cbdata =
+            reinterpret_cast<callback_t *>(callback_pool->get());
         features->insert( features->begin(), func_features.begin(), func_features.end() );
         Apollo::RegionContext *context = apolloRegion->begin( *features );
         delete features;
@@ -445,9 +448,7 @@ struct StatementExecutor<
         cudaEventRecord(cbdata->start, stream);
         launch_t::launch(std::move(cuda_data), launch_dims, shmem, stream);
         cudaEventRecord(cbdata->stop, stream);
-        apolloRegion->end(context,
-                          RAJA::apollo_cuda::ApolloCallbackHelper::isDoneCallback,
-                          cbdata);
+        apolloRegion->end(context);
       }
 
       //
