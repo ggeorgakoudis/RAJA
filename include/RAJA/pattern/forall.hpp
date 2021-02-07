@@ -484,7 +484,6 @@ RAJA_INLINE concepts::enable_if_t<
     concepts::negate<type_traits::is_indexset_policy<ExecutionPolicy>>,
     concepts::negate<type_traits::is_multi_policy<ExecutionPolicy>>,
     type_traits::is_apollo_multi_policy<ExecutionPolicy>,
-    concepts::negate<type_traits::is_apollo_multi_policy<ExecutionPolicy>>,
     type_traits::is_range<Container>>
 forall(ExecutionPolicy&& p, Res &r, Container&& c, LoopBody&& loop_body)
 {
