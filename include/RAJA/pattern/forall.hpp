@@ -553,7 +553,9 @@ concepts::negate<type_traits::is_apollo_multi_policy<ExecutionPolicy>>> forall(R
 
 template <typename ExecutionPolicy, typename... Args,
           typename Res = typename resources::get_resource<ExecutionPolicy>::type >
-RAJA_INLINE void forall(Args&&... args)
+RAJA_INLINE concepts::enable_if<
+    type_traits::is_apollo_multi_policy<ExecutionPolicy>>
+forall(Args&&... args)
 {
   Res r = Res::get_default();
   forall<ExecutionPolicy>(r, std::forward<Args>(args)...);

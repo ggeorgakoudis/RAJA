@@ -23,8 +23,8 @@
 //
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-#ifndef RAJA_policy_apollo_nested_HPP
-#define RAJA_policy_apollo_nested_HPP
+#ifndef RAJA_policy_apollo_openmp_kernel_collapse_HPP
+#define RAJA_policy_apollo_openmp_kernel_collapse_HPP
 
 #include "RAJA/config.hpp"
 
@@ -46,7 +46,7 @@
 #include "RAJA/util/macros.hpp"
 #include "RAJA/util/types.hpp"
 
-#include "RAJA/policy/apollo/policy.hpp"
+#include "RAJA/policy/apollo_openmp/policy.hpp"
 
 #if !defined(RAJA_COMPILER_MSVC)
 #define RAJA_COLLAPSE(X) collapse(X)
@@ -60,8 +60,8 @@
 namespace RAJA
 {
 
-struct apollo_collapse_exec
-    : make_policy_pattern_t<RAJA::Policy::apollo,
+struct apollo_omp_parallel_collapse_exec
+    : make_policy_pattern_t<RAJA::Policy::apollo_openmp,
                             RAJA::Pattern::forall,
                             RAJA::policy::omp::For> {
 };
@@ -74,7 +74,7 @@ namespace internal
 /////////
 
 template <camp::idx_t Arg0, camp::idx_t Arg1, typename... EnclosedStmts, typename Types>
-struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
+struct StatementExecutor<statement::Collapse<apollo_omp_parallel_collapse_exec,
                                              ArgList<Arg0, Arg1>,
                                              EnclosedStmts...>, Types> {
 
@@ -85,7 +85,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       static Apollo         *apollo             = Apollo::instance();
       static Apollo::Region *apolloRegion       = nullptr;
       static int             policy_index       = 0;
-      using RAJA::policy::apollo::POLICY_COUNT;
+      using RAJA::policy::apollo_omp::POLICY_COUNT;
       static int max_num_threads = std::min( omp_get_max_threads(), omp_get_thread_limit() );
       if (apolloRegion == nullptr) {
           std::string code_location = apollo->getCallpathOffset();
@@ -209,7 +209,7 @@ template <camp::idx_t Arg0,
           camp::idx_t Arg2,
           typename... EnclosedStmts,
           typename Types>
-struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
+struct StatementExecutor<statement::Collapse<apollo_omp_parallel_collapse_exec,
                                              ArgList<Arg0, Arg1, Arg2>,
                                              EnclosedStmts...>, Types> {
 
@@ -220,7 +220,7 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       static Apollo         *apollo             = Apollo::instance();
       static Apollo::Region *apolloRegion       = nullptr;
       static int             policy_index       = 0;
-      using RAJA::policy::apollo::POLICY_COUNT;
+      using RAJA::policy::apollo_omp::POLICY_COUNT;
       static int max_num_threads = std::min( omp_get_max_threads(), omp_get_thread_limit() );
       if (apolloRegion == nullptr) {
           std::string code_location = apollo->getCallpathOffset();
@@ -356,10 +356,6 @@ struct StatementExecutor<statement::Collapse<apollo_collapse_exec,
       apolloRegion->end();
   }
 };
-
-
-
-
 
 }  // namespace internal
 }  // namespace RAJA

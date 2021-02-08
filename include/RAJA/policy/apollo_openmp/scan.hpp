@@ -3,7 +3,7 @@
 *
 * \file
 *
-* \brief   Header file providing Apollo wrapper to RAJA scan declarations.
+* \brief   Header file providing Apollo OpenMP wrapper to RAJA scan declarations.
 *
 ******************************************************************************
 */
@@ -23,8 +23,8 @@
 //
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-#ifndef RAJA_scan_apollo_HPP
-#define RAJA_scan_apollo_HPP
+#ifndef RAJA_scan_apollo_openmp_HPP
+#define RAJA_scan_apollo_openmp_HPP
 
 #include "RAJA/config.hpp"
 
@@ -50,9 +50,7 @@ namespace scan
    initial value
 */
 template <typename Policy, typename Iter, typename BinFn>
-concepts::enable_if<type_traits::is_apollo_policy<Policy>> inclusive_inplace(
-    //const RAJA::apollo_exec&,
-    //const RAJA::policy::apollo::apollo_exec,
+concepts::enable_if<type_traits::is_apollo_openmp_policy<Policy>> inclusive_inplace(
     const Policy&,
     Iter begin,
     Iter end,
@@ -66,9 +64,7 @@ concepts::enable_if<type_traits::is_apollo_policy<Policy>> inclusive_inplace(
    initial value
 */
 template <typename Policy, typename Iter, typename BinFn, typename ValueT>
-concepts::enable_if<type_traits::is_apollo_policy<Policy>> exclusive_inplace(
-    //const RAJA::apollo_exec&,
-    //const RAJA::policy::apollo::apollo_exec,
+concepts::enable_if<type_traits::is_apollo_openmp_policy<Policy>> exclusive_inplace(
     const Policy&,
     Iter begin,
     Iter end,
@@ -83,9 +79,7 @@ concepts::enable_if<type_traits::is_apollo_policy<Policy>> exclusive_inplace(
    initial value
 */
 template <typename Policy, typename Iter, typename OutIter, typename BinFn>
-concepts::enable_if<type_traits::is_apollo_policy<Policy>> inclusive(
-    //const RAJA::apollo_exec&,
-    //const RAJA::policy::apollo::apollo_exec,
+concepts::enable_if<type_traits::is_apollo_openmp_policy<Policy>> inclusive(
     const Policy&,
     Iter begin,
     Iter end,
@@ -104,9 +98,7 @@ template <typename Policy,
           typename OutIter,
           typename BinFn,
           typename ValueT>
-concepts::enable_if<type_traits::is_apollo_policy<Policy>> exclusive(
-    //const RAJA::apollo_exec&,
-    //const RAJA::policy::apollo::apollo_exec,
+concepts::enable_if<type_traits::is_apollo_openmp_policy<Policy>> exclusive(
     const Policy&,
     Iter begin,
     Iter end,

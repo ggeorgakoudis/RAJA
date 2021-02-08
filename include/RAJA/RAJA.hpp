@@ -86,7 +86,7 @@
 #endif
 
 #if defined(RAJA_ENABLE_APOLLO)
-#include "RAJA/policy/apollo.hpp"
+#include "RAJA/policy/apollo_openmp.hpp"
 #endif
 
 #endif

@@ -3,7 +3,7 @@
  *
  * \file
  *
- * \brief   Header file containing RAJA apollo policy definitions.
+ * \brief   Header file containing RAJA apollo openmp policy definitions.
  *
  ******************************************************************************
  */
@@ -23,8 +23,8 @@
 //
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-#ifndef policy_apollo_HPP
-#define policy_apollo_HPP
+#ifndef policy_apollo_openmp_HPP
+#define policy_apollo_openmp_HPP
 
 #include "RAJA/policy/PolicyBase.hpp"
 
@@ -32,7 +32,7 @@ namespace RAJA
 {
 namespace policy
 {
-namespace apollo
+namespace apollo_omp
 {
 
 //
@@ -47,13 +47,7 @@ namespace apollo
 /// Segment execution policies
 ///
 
-struct apollo_region : make_policy_pattern_launch_platform_t<Policy::apollo,
-                                                          Pattern::region,
-                                                          Launch::sync,
-                                                          Platform::host> {
-};
-
-struct apollo_exec : make_policy_pattern_launch_platform_t<Policy::apollo,
+struct apollo_omp_parallel_for_exec : make_policy_pattern_launch_platform_t<Policy::apollo_openmp,
                                                         Pattern::forall,
                                                         Launch::undefined,
                                                         Platform::host> {
@@ -62,7 +56,7 @@ struct apollo_exec : make_policy_pattern_launch_platform_t<Policy::apollo,
 ///
 /// Index set segment iteration policies
 ///
-using apollo_segit = apollo_exec;
+using apollo_omp_segit = apollo_omp_parallel_for_exec;
 
 ///
 ///////////////////////////////////////////////////////////////////////
@@ -71,33 +65,19 @@ using apollo_segit = apollo_exec;
 ///
 ///////////////////////////////////////////////////////////////////////
 ///
-struct apollo_reduce : make_policy_pattern_launch_platform_t<Policy::apollo,
-                                                          Pattern::forall,
-                                                          Launch::undefined,
-                                                          Platform::host> {
+struct apollo_omp_reduce
+    : make_policy_pattern_t<Policy::apollo_openmp, Pattern::reduce> {
 };
 
 const int POLICY_COUNT = 20;
 
-}  // end namespace apollo
+}  // end namespace apollo_omp
 }  // end namespace policy
 
-using policy::apollo::apollo_exec;
-using policy::apollo::apollo_region;
-using policy::apollo::apollo_segit;
-using policy::apollo::apollo_reduce;
+using policy::apollo_omp::apollo_omp_parallel_for_exec;
+using policy::apollo_omp::apollo_omp_segit;
+using policy::apollo_omp::apollo_omp_reduce;
 
-///
-///////////////////////////////////////////////////////////////////////
-///
-/// Shared memory policies
-///
-///////////////////////////////////////////////////////////////////////
-///
-
-struct apollo_shmem {
-};
-
-}  // closing brace for RAJA namespace
+}  // end namespace RAJA
 
 #endif

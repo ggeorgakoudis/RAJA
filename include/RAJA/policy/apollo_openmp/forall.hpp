@@ -26,8 +26,9 @@
 //
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-#ifndef RAJA_forall_apollo_HPP
-#define RAJA_forall_apollo_HPP
+#ifndef RAJA_forall_apollo_openmp_HPP
+#define RAJA_forall_apollo_openmp_HPP
+
 
 #include "RAJA/config.hpp"
 
@@ -50,7 +51,7 @@
 #include "RAJA/pattern/forall.hpp"
 #include "RAJA/pattern/region.hpp"
 
-#include "RAJA/policy/apollo/policy.hpp"
+#include "RAJA/policy/apollo_openmp/policy.hpp"
 #include "RAJA/internal/fault_tolerance.hpp"
 
 #include "apollo/Apollo.h"
@@ -64,7 +65,7 @@ namespace RAJA
 {
 namespace policy
 {
-namespace apollo
+namespace apollo_omp
 {
 //
 //////////////////////////////////////////////////////////////////////
@@ -81,7 +82,11 @@ namespace apollo
 #endif
 
 template <typename Iterable, typename Func>
-RAJA_INLINE resources::EventProxy<resources::Host> forall_impl(resources::Host &host_res, const apollo_exec &, Iterable &&iter, Func &&loop_body)
+RAJA_INLINE resources::EventProxy<resources::Host> forall_impl(
+    resources::Host &host_res,
+    const apollo_omp_parallel_for_exec &,
+    Iterable &&iter,
+    Func &&loop_body)
 {
     static Apollo         *apollo             = Apollo::instance();
     static Apollo::Region *apolloRegion       = nullptr;

@@ -36,7 +36,7 @@ enum class Policy {
   cuda,
   hip,
   tbb,
-  apollo,
+  apollo_openmp,
   apollo_cuda,
   apollo_multi
 };
@@ -199,7 +199,7 @@ template <typename Pol>
 struct is_hip_policy : RAJA::policy_is<Pol, RAJA::Policy::hip> {
 };
 template <typename Pol>
-struct is_apollo_policy : RAJA::policy_is<Pol, RAJA::Policy::apollo> {
+struct is_apollo_openmp_policy : RAJA::policy_is<Pol, RAJA::Policy::apollo_openmp> {
 };
 template <typename Pol>
 struct is_apollo_cuda_policy : RAJA::policy_is<Pol, RAJA::Policy::apollo_cuda> {
