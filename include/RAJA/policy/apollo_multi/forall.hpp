@@ -75,8 +75,6 @@ namespace apollo_multi
 //////////////////////////////////////////////////////////////////////
 //
 
-#include "RAJA/util/PluginStrategy.hpp"
-
 #include <iostream> // ggout
 
 template <typename Pol>
@@ -197,6 +195,7 @@ RAJA_INLINE void forall_impl(const apollo_multi_exec<PolicyList> &,
   static Apollo *apollo = Apollo::instance();
   static Apollo::Region *apolloRegion = nullptr;
   static int policy_index = 0;
+  // TODO: Move the callback data pool to generic apollo header
   static RAJA::apollo_cuda::ApolloCallbackDataPool *callback_pool = nullptr;
   if (apolloRegion == nullptr) {
     std::string code_location = apollo->getCallpathOffset();

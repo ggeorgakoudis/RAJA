@@ -41,8 +41,21 @@ namespace RAJA
  * This is just a list of RAJA::kernel statements.
  */
 template <typename... Stmts>
-using KernelPolicy = internal::StatementList<Stmts...>;
+struct KernelPolicy
+    : public RAJA::make_policy_pattern_t<RAJA::Policy::undefined,
+                                         RAJA::Pattern::kernel>,
+      public internal::StatementList<Stmts...> {
 
+};
+
+//template <typename... Stmts>
+//using KernelPolicy = internal::StatementList<Stmts...>;
+
+template <typename KernelPolicyList>
+struct ApolloMultiKernelPolicy
+    : public RAJA::make_policy_pattern_t<RAJA::Policy::apollo_multi,
+                                         RAJA::Pattern::kernel> {
+};
 
 ///
 /// Template list of argument indices
@@ -181,6 +194,7 @@ RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<PolicyType>> ke
                                                  std::forward<Bodies>(bodies)...);
 }
 
+<<<<<<< HEAD
 template <typename PolicyType, typename SegmentTuple, typename... Bodies>
 RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<PolicyType>> kernel(SegmentTuple &&segments,
                                                                                      Bodies &&... bodies)
@@ -191,7 +205,29 @@ RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<PolicyType>> ke
                                                  res,
                                                  std::forward<Bodies>(bodies)...);
 }
+inline namespace policy_by_value_interface
+{
 
+template <typename... Stmts, typename SegmentTuple, typename... Bodies>
+RAJA_INLINE void kernel(KernelPolicy<Stmts...> &p, SegmentTuple &&segments, Bodies &&... bodies) {
+  RAJA::kernel_param<internal::StatementList<Stmts...>>(std::forward<SegmentTuple>(segments),
+                                 RAJA::make_tuple(),
+                                 std::forward<Bodies>(bodies)...);
+}
+
+}
+
+template <typename PolicyType, typename SegmentTuple, typename... Bodies>
+RAJA_INLINE
+concepts::enable_if<
+    concepts::negate<type_traits::is_apollo_multi_policy<PolicyType>
+    >
+>
+kernel(SegmentTuple &&segments, Bodies &&... bodies)
+{
+    PolicyType p;
+    policy_by_value_interface::kernel(p, std::forward<SegmentTuple>(segments), std::forward<Bodies>(bodies)...);
+}
 
 }  // end namespace RAJA
 

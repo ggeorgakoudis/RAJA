@@ -51,7 +51,8 @@ enum class Pattern {
   workgroup,
   workgroup_exec,
   workgroup_order,
-  workgroup_storage
+  workgroup_storage,
+  kernel
 };
 
 enum class Launch { undefined, sync, async };

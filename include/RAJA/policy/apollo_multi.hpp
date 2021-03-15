@@ -27,7 +27,7 @@
 #define RAJA_apollo_multi_HPP
 
 #include "RAJA/policy/apollo_multi/forall.hpp"
-//#include "RAJA/policy/apollo_multi/kernel.hpp"
+#include "RAJA/policy/apollo_multi/kernel.hpp"
 //#include "RAJA/policy/apollo_multi/policy.hpp"
 //#include "RAJA/policy/apollo_multi/scan.hpp"
 
