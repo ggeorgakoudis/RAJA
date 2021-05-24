@@ -80,3 +80,19 @@ foreach(dep ${TPL_DEPS})
         set_target_properties(${dep} PROPERTIES EXPORT_NAME RAJA::${dep})
     endif()
 endforeach()
+
+if (ENABLE_APOLLO)
+    find_package(APOLLO REQUIRED)
+    if(APOLLO_FOUND)
+        blt_register_library(
+            NAME apollo
+            INCLUDES ${APOLLO_INCLUDE_DIRS}
+            LIBRARIES ${APOLLO_LIBRARY})
+        #message(STATUS "---- APOLLO:    APOLLO_INCLUDE_DIRS = ${APOLLO_INCLUDE_DIRS}")
+        #message(STATUS "---- APOLLO:    APOLLO_LIB_DIRS     = ${APOLLO_LIB_DIRS}")
+        #message(STATUS "---- APOLLO:    APOLLO_LIBRARY      = ${APOLLO_LIBRARY}")
+    else()
+        message(FATAL_ERROR "APOLLO NOT FOUND")
+        message(STATUS "Apollo Enabled")
+    endif(APOLLO_FOUND)
+endif()

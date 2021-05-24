@@ -79,6 +79,10 @@
 #if defined(RAJA_ENABLE_TARGET_OPENMP)
 #include "RAJA/policy/openmp_target.hpp"
 #endif
+
+#if defined(RAJA_ENABLE_APOLLO)
+#include "RAJA/policy/apollo_multi.hpp"
+#endif
 #endif
 
 #include "RAJA/index/IndexSet.hpp"
