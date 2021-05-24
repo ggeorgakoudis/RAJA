@@ -41,8 +41,20 @@ namespace RAJA
  * This is just a list of RAJA::kernel statements.
  */
 template <typename... Stmts>
-using KernelPolicy = internal::StatementList<Stmts...>;
+struct KernelPolicy
+    : public RAJA::make_policy_pattern_t<RAJA::Policy::undefined,
+                                         RAJA::Pattern::kernel>
+{
 
+  typedef internal::StatementList<Stmts...> stmtlist;
+};
+//using KernelPolicy = internal::StatementList<Stmts...>;
+
+template <typename KernelPolicyList>
+struct ApolloKernelMultiPolicy
+    : public RAJA::make_policy_pattern_t<RAJA::Policy::apollo_multi,
+                                         RAJA::Pattern::kernel> {
+};
 
 ///
 /// Template list of argument indices
@@ -101,7 +113,7 @@ template <typename PolicyType,
           typename ParamTuple,
           typename Resource,
           typename... Bodies>
-RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource(SegmentTuple &&segments,
+RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource_impl(SegmentTuple &&segments,
                                                                   ParamTuple &&params,
                                                                   Resource resource,
                                                                   Bodies &&... bodies)
@@ -154,13 +166,31 @@ RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource(SegmentTuple &
 
 template <typename PolicyType,
           typename SegmentTuple,
+          typename ParamTuple,
+          typename Resource,
+          typename... Bodies>
+RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource(SegmentTuple &&segments,
+                                                                  ParamTuple &&params,
+                                                                  Resource resource,
+                                                                  Bodies &&... bodies)
+{
+  return RAJA::kernel_param_resource_impl<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
+                                                 std::forward<ParamTuple>(params),
+                                                 resource,
+                                                 std::forward<Bodies>(bodies)...);
+
+}
+
+
+template <typename PolicyType,
+          typename SegmentTuple,
           typename Resource,
           typename... Bodies>
 RAJA_INLINE resources::EventProxy<Resource> kernel_resource(SegmentTuple &&segments,
                                                             Resource resource,
                                                             Bodies &&... bodies)
 {
-  return RAJA::kernel_param_resource<PolicyType>(std::forward<SegmentTuple>(segments),
+  return RAJA::kernel_param_resource_impl<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
                                                  RAJA::make_tuple(),
                                                  resource,
                                                  std::forward<Bodies>(bodies)...);
@@ -170,28 +200,49 @@ template <typename PolicyType,
           typename SegmentTuple,
           typename ParamTuple,
           typename... Bodies>
-RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<PolicyType>> kernel_param(SegmentTuple &&segments,
+RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<typename PolicyType::stmtlist>> kernel_param(SegmentTuple &&segments,
                                                                                            ParamTuple &&params,
                                                                                            Bodies &&... bodies)
 {
-  auto res = resources::get_default_resource<PolicyType>();
-  return RAJA::kernel_param_resource<PolicyType>(std::forward<SegmentTuple>(segments),
+  auto res = resources::get_default_resource<typename PolicyType::stmtlist>();
+  return RAJA::kernel_param_resource_impl<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
                                                  std::forward<ParamTuple>(params),
                                                  res,
                                                  std::forward<Bodies>(bodies)...);
 }
 
-template <typename PolicyType, typename SegmentTuple, typename... Bodies>
-RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<PolicyType>> kernel(SegmentTuple &&segments,
-                                                                                     Bodies &&... bodies)
+inline namespace policy_by_value_interface
 {
-  auto res = resources::get_default_resource<PolicyType>();
-  return RAJA::kernel_param_resource<PolicyType>(std::forward<SegmentTuple>(segments),
-                                                 RAJA::make_tuple(),
-                                                 res,
-                                                 std::forward<Bodies>(bodies)...);
+
+template <typename... Stmts, typename SegmentTuple, typename Resource, typename... Bodies>
+RAJA_INLINE resources::EventProxy<Resource>
+kernel(KernelPolicy<Stmts...> &&p, SegmentTuple &&segments, Resource &res, Bodies &&...bodies)
+{
+  return RAJA::kernel_param_resource_impl<typename KernelPolicy<Stmts...>::stmtlist>(
+      std::forward<SegmentTuple>(segments),
+      RAJA::make_tuple(),
+      res,
+      std::forward<Bodies>(bodies)...);
 }
 
+}
+
+template <typename PolicyType, typename SegmentTuple, typename... Bodies>
+RAJA_INLINE
+concepts::enable_if_t<
+    resources::EventProxy<resources::resource_from_pol_t<typename PolicyType::stmtlist>>,
+    concepts::negate<type_traits::is_apollo_multi_policy<PolicyType>
+    >
+>
+kernel(SegmentTuple &&segments, Bodies &&... bodies)
+{
+  PolicyType p;
+  auto res = resources::get_default_resource<typename PolicyType::stmtlist>();
+  return policy_by_value_interface::kernel(std::forward<PolicyType>(p),
+                                           std::forward<SegmentTuple>(segments),
+                                           res,
+                                           std::forward<Bodies>(bodies)...);
+}
 
 }  // end namespace RAJA
 

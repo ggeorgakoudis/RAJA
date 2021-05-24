@@ -36,7 +36,8 @@ enum class Policy {
   cuda,
   hip,
   sycl,
-  tbb
+  tbb,
+  apollo_multi
 };
 
 enum class Pattern {
@@ -50,7 +51,8 @@ enum class Pattern {
   workgroup_exec,
   workgroup_order,
   workgroup_storage,
-  workgroup_dispatch
+  workgroup_dispatch,
+  kernel
 };
 
 enum class Launch { undefined, sync, async };
@@ -199,6 +201,9 @@ struct is_hip_policy : RAJA::policy_is<Pol, RAJA::Policy::hip> {
 };
 template <typename Pol>
 struct is_sycl_policy : RAJA::policy_is<Pol, RAJA::Policy::sycl> {
+};
+template <typename Pol>
+struct is_apollo_multi_policy : RAJA::policy_is<Pol, RAJA::Policy::apollo_multi> {
 };
 
 template <typename Pol>

@@ -36,6 +36,10 @@ macro(raja_add_executable)
     list (APPEND arg_DEPENDS_ON tbb)
   endif ()
 
+  if (ENABLE_APOLLO)
+      list (APPEND arg_DEPENDS_ON apollo)
+  endif()
+
   if (${arg_TEST})
     set (_output_dir ${CMAKE_BINARY_DIR}/test)
   elseif (${arg_REPRODUCER})

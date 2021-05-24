@@ -94,6 +94,10 @@
 #endif
 #endif
 
+#if defined(RAJA_ENABLE_APOLLO)
+#include "RAJA/policy/apollo_multi.hpp"
+#endif
+
 #if defined(RAJA_ENABLE_DESUL_ATOMICS)
     #include "RAJA/policy/desul.hpp"
 #endif

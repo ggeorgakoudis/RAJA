@@ -65,6 +65,7 @@ set(RAJA_ENABLE_CLANG_CUDA ${ENABLE_CLANG_CUDA})
 set(RAJA_ENABLE_HIP ${ENABLE_HIP})
 set(RAJA_ENABLE_SYCL ${ENABLE_SYCL})
 set(RAJA_ENABLE_CUB ${ENABLE_CUB})
+set(RAJA_ENABLE_APOLLO ${ENABLE_APOLLO})
 
 # Configure a header file with all the variables we found.
 configure_file(${PROJECT_SOURCE_DIR}/include/RAJA/config.hpp.in
