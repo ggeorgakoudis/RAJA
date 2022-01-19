@@ -17,8 +17,8 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-21, Lawrence Livermore National Security, LLC
-// and RAJA project contributors. See the RAJA/COPYRIGHT file for details.
+// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -73,6 +73,10 @@
 #include "RAJA/policy/hip.hpp"
 #endif
 
+#if defined(RAJA_ENABLE_SYCL)
+#include "RAJA/policy/sycl.hpp"
+#endif
+
 #if defined(RAJA_ENABLE_OPENMP)
 #include "RAJA/policy/openmp.hpp"
 
@@ -83,6 +87,10 @@
 #if defined(RAJA_ENABLE_APOLLO)
 #include "RAJA/policy/apollo_multi.hpp"
 #endif
+#endif
+
+#if defined(RAJA_ENABLE_DESUL_ATOMICS)
+    #include "RAJA/policy/desul.hpp"
 #endif
 
 #include "RAJA/index/IndexSet.hpp"

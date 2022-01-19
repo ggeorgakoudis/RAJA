@@ -9,8 +9,8 @@
 */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-21, Lawrence Livermore National Security, LLC
-// and RAJA project contributors. See the RAJA/COPYRIGHT file for details.
+// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -44,7 +44,7 @@ namespace sort
 /*!
         \brief static assert unimplemented stable sort
 */
-template <size_t BLOCK_SIZE, bool Async, typename Iter, typename Compare>
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async, typename Iter, typename Compare>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       concepts::negate<concepts::all_of<
                         type_traits::is_arithmetic<RAJA::detail::IterVal<Iter>>,
@@ -53,8 +53,8 @@ concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                           camp::is_same<Compare, operators::less<RAJA::detail::IterVal<Iter>>>,
                           camp::is_same<Compare, operators::greater<RAJA::detail::IterVal<Iter>>>>>>>
 stable(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     Iter,
     Iter,
     Compare)
@@ -69,19 +69,19 @@ stable(
       camp::is_same<Compare, operators::greater<iterval>>>::value,
       "stable_sort<cuda_exec> is only implemented for RAJA::operators::less or RAJA::operators::greater");
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 /*!
         \brief stable sort given range in ascending order
 */
-template <size_t BLOCK_SIZE, bool Async, typename Iter>
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async, typename Iter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<Iter>>,
                       std::is_pointer<Iter>>
 stable(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     Iter begin,
     Iter end,
     operators::less<RAJA::detail::IterVal<Iter>>)
@@ -135,22 +135,21 @@ stable(
 
   cuda::device_mempool_type::getInstance().free(d_out);
 
-  cuda::launch(stream);
-  if (!Async) cuda::synchronize(stream);
+  cuda::launch(cuda_res, Async);
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 /*!
         \brief stable sort given range in descending order
 */
-template <size_t BLOCK_SIZE, bool Async, typename Iter>
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async, typename Iter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<Iter>>,
                       std::is_pointer<Iter>>
 stable(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     Iter begin,
     Iter end,
     operators::greater<RAJA::detail::IterVal<Iter>>)
@@ -204,17 +203,16 @@ stable(
 
   cuda::device_mempool_type::getInstance().free(d_out);
 
-  cuda::launch(stream);
-  if (!Async) cuda::synchronize(stream);
+  cuda::launch(cuda_res, Async);
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 
 /*!
         \brief static assert unimplemented sort
 */
-template <size_t BLOCK_SIZE, bool Async, typename Iter, typename Compare>
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async, typename Iter, typename Compare>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       concepts::negate<concepts::all_of<
                         type_traits::is_arithmetic<RAJA::detail::IterVal<Iter>>,
@@ -223,8 +221,8 @@ concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                           camp::is_same<Compare, operators::less<RAJA::detail::IterVal<Iter>>>,
                           camp::is_same<Compare, operators::greater<RAJA::detail::IterVal<Iter>>>>>>>
 unstable(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     Iter,
     Iter,
     Compare)
@@ -239,19 +237,19 @@ unstable(
       camp::is_same<Compare, operators::greater<iterval>>>::value,
       "sort<cuda_exec> is only implemented for RAJA::operators::less or RAJA::operators::greater");
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 /*!
         \brief sort given range in ascending order
 */
-template <size_t BLOCK_SIZE, bool Async, typename Iter>
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async, typename Iter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<Iter>>,
                       std::is_pointer<Iter>>
 unstable(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async> p,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async> p,
     Iter begin,
     Iter end,
     operators::less<RAJA::detail::IterVal<Iter>> comp)
@@ -262,13 +260,13 @@ unstable(
 /*!
         \brief sort given range in descending order
 */
-template <size_t BLOCK_SIZE, bool Async, typename Iter>
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async, typename Iter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<Iter>>,
                       std::is_pointer<Iter>>
 unstable(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async> p,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async> p,
     Iter begin,
     Iter end,
     operators::greater<RAJA::detail::IterVal<Iter>> comp)
@@ -280,7 +278,7 @@ unstable(
 /*!
         \brief static assert unimplemented stable sort pairs
 */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename KeyIter, typename ValIter, typename Compare>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       concepts::negate<concepts::all_of<
@@ -291,8 +289,8 @@ concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                           camp::is_same<Compare, operators::less<RAJA::detail::IterVal<KeyIter>>>,
                           camp::is_same<Compare, operators::greater<RAJA::detail::IterVal<KeyIter>>>>>>>
 stable_pairs(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     KeyIter,
     KeyIter,
     ValIter,
@@ -310,21 +308,21 @@ stable_pairs(
       camp::is_same<Compare, operators::greater<K>>>::value,
       "stable_sort_pairs<cuda_exec> is only implemented for RAJA::operators::less or RAJA::operators::greater");
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 /*!
         \brief stable sort given range of pairs in ascending order of keys
 */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename KeyIter, typename ValIter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<KeyIter>>,
                       std::is_pointer<KeyIter>,
                       std::is_pointer<ValIter>>
 stable_pairs(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     KeyIter keys_begin,
     KeyIter keys_end,
     ValIter vals_begin,
@@ -390,24 +388,23 @@ stable_pairs(
   cuda::device_mempool_type::getInstance().free(d_keys_out);
   cuda::device_mempool_type::getInstance().free(d_vals_out);
 
-  cuda::launch(stream);
-  if (!Async) cuda::synchronize(stream);
+  cuda::launch(cuda_res, Async);
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 /*!
         \brief stable sort given range of pairs in descending order of keys
 */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename KeyIter, typename ValIter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<KeyIter>>,
                       std::is_pointer<KeyIter>,
                       std::is_pointer<ValIter>>
 stable_pairs(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     KeyIter keys_begin,
     KeyIter keys_end,
     ValIter vals_begin,
@@ -473,17 +470,16 @@ stable_pairs(
   cuda::device_mempool_type::getInstance().free(d_keys_out);
   cuda::device_mempool_type::getInstance().free(d_vals_out);
 
-  cuda::launch(stream);
-  if (!Async) cuda::synchronize(stream);
+  cuda::launch(cuda_res, Async);
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 
 /*!
         \brief static assert unimplemented sort pairs
 */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename KeyIter, typename ValIter, typename Compare>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       concepts::negate<concepts::all_of<
@@ -494,8 +490,8 @@ concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                           camp::is_same<Compare, operators::less<RAJA::detail::IterVal<KeyIter>>>,
                           camp::is_same<Compare, operators::greater<RAJA::detail::IterVal<KeyIter>>>>>>>
 unstable_pairs(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async>,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
     KeyIter,
     KeyIter,
     ValIter,
@@ -513,21 +509,21 @@ unstable_pairs(
       camp::is_same<Compare, operators::greater<K>>>::value,
       "sort_pairs<cuda_exec> is only implemented for RAJA::operators::less or RAJA::operators::greater");
 
-  return resources::EventProxy<resources::Cuda>(&cuda_res);
+  return resources::EventProxy<resources::Cuda>(cuda_res);
 }
 
 /*!
         \brief stable sort given range of pairs in ascending order of keys
 */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename KeyIter, typename ValIter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<KeyIter>>,
                       std::is_pointer<KeyIter>,
                       std::is_pointer<ValIter>>
 unstable_pairs(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async> p,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async> p,
     KeyIter keys_begin,
     KeyIter keys_end,
     ValIter vals_begin,
@@ -539,15 +535,15 @@ unstable_pairs(
 /*!
         \brief stable sort given range of pairs in descending order of keys
 */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename KeyIter, typename ValIter>
 concepts::enable_if_t<resources::EventProxy<resources::Cuda>,
                       type_traits::is_arithmetic<RAJA::detail::IterVal<KeyIter>>,
                       std::is_pointer<KeyIter>,
                       std::is_pointer<ValIter>>
 unstable_pairs(
-    resources::Cuda& cuda_res,
-    cuda_exec<BLOCK_SIZE, Async> p,
+    resources::Cuda cuda_res,
+    cuda_exec_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async> p,
     KeyIter keys_begin,
     KeyIter keys_end,
     ValIter vals_begin,

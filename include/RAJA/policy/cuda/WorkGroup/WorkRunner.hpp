@@ -9,8 +9,8 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-21, Lawrence Livermore National Security, LLC
-// and RAJA project contributors. See the RAJA/COPYRIGHT file for details.
+// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
@@ -36,27 +36,27 @@ namespace detail
  * Runs work in a storage container in order
  * and returns any per run resources
  */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename ALLOCATOR_T,
           typename INDEX_T,
           typename ... Args>
 struct WorkRunner<
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::ordered,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
     : WorkRunnerForallOrdered<
-        RAJA::cuda_exec_async<BLOCK_SIZE>,
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_exec_explicit_async<BLOCK_SIZE, BLOCKS_PER_SM>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::ordered,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
 {
   using base = WorkRunnerForallOrdered<
-        RAJA::cuda_exec_async<BLOCK_SIZE>,
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_exec_explicit_async<BLOCK_SIZE, BLOCKS_PER_SM>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::ordered,
         ALLOCATOR_T,
         INDEX_T,
@@ -70,17 +70,17 @@ struct WorkRunner<
   /// run all loops asynchronously and synchronize after is necessary
   ///
   template < typename WorkContainer >
-  per_run_storage run(WorkContainer const& storage, Args... args) const
+  per_run_storage run(WorkContainer const& storage,
+                      typename base::resource_type r, Args... args) const
   {
     per_run_storage run_storage =
-        base::run(storage, std::forward<Args>(args)...);
+        base::run(storage, r, std::forward<Args>(args)...);
 
     IndexType num_loops = std::distance(std::begin(storage), std::end(storage));
 
     // Only synchronize if we had something to iterate over
     if (num_loops > 0 && BLOCK_SIZE > 0) {
-      cudaStream_t stream = 0; // TODO: coordinate with base to use same stream
-      if (!Async) { RAJA::cuda::synchronize(stream); }
+      if (!Async) { RAJA::cuda::synchronize(r); }
     }
 
     return run_storage;
@@ -91,27 +91,27 @@ struct WorkRunner<
  * Runs work in a storage container in reverse order
  * and returns any per run resources
  */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename ALLOCATOR_T,
           typename INDEX_T,
           typename ... Args>
 struct WorkRunner<
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::reverse_ordered,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
     : WorkRunnerForallReverse<
-        RAJA::cuda_exec_async<BLOCK_SIZE>,
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_exec_explicit_async<BLOCK_SIZE, BLOCKS_PER_SM>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::reverse_ordered,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
 {
   using base = WorkRunnerForallReverse<
-        RAJA::cuda_exec_async<BLOCK_SIZE>,
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_exec_explicit_async<BLOCK_SIZE, BLOCKS_PER_SM>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::reverse_ordered,
         ALLOCATOR_T,
         INDEX_T,
@@ -125,17 +125,17 @@ struct WorkRunner<
   /// run all loops asynchronously and synchronize after is necessary
   ///
   template < typename WorkContainer >
-  per_run_storage run(WorkContainer const& storage, Args... args) const
+  per_run_storage run(WorkContainer const& storage,
+                      typename base::resource_type r, Args... args) const
   {
     per_run_storage run_storage =
-        base::run(storage, std::forward<Args>(args)...);
+        base::run(storage, r, std::forward<Args>(args)...);
 
     IndexType num_loops = std::distance(std::begin(storage), std::end(storage));
 
     // Only synchronize if we had something to iterate over
     if (num_loops > 0 && BLOCK_SIZE > 0) {
-      cudaStream_t stream = 0; // TODO: coordinate with base to use same stream
-      if (!Async) { RAJA::cuda::synchronize(stream); }
+      if (!Async) { RAJA::cuda::synchronize(r); }
     }
 
     return run_storage;
@@ -177,11 +177,12 @@ private:
 };
 
 template < size_t BLOCK_SIZE,
+           size_t BLOCKS_PER_SM,
            typename StorageIter,
            typename value_type,
            typename index_type,
            typename ... Args >
-__launch_bounds__(BLOCK_SIZE, 1) __global__
+__launch_bounds__(BLOCK_SIZE, BLOCKS_PER_SM) __global__
     void cuda_unordered_y_block_global(StorageIter iter, Args... args)
 {
   const index_type i_loop = blockIdx.y;
@@ -197,23 +198,24 @@ __launch_bounds__(BLOCK_SIZE, 1) __global__
  * the x direction, with the number of threads in the x dimension determined
  * by the average number of iterates per loop
  */
-template <size_t BLOCK_SIZE, bool Async,
+template <size_t BLOCK_SIZE, size_t BLOCKS_PER_SM, bool Async,
           typename ALLOCATOR_T,
           typename INDEX_T,
           typename ... Args>
 struct WorkRunner<
-        RAJA::cuda_work<BLOCK_SIZE, Async>,
+        RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>,
         RAJA::policy::cuda::unordered_cuda_loop_y_block_iter_x_threadblock_average,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
 {
-  using exec_policy = RAJA::cuda_work<BLOCK_SIZE, Async>;
+  using exec_policy = RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, Async>;
   using order_policy = RAJA::policy::cuda::unordered_cuda_loop_y_block_iter_x_threadblock_average;
   using Allocator = ALLOCATOR_T;
   using index_type = INDEX_T;
+  using resource_type = resources::Cuda;
 
-  using vtable_type = Vtable<RAJA::cuda_work<BLOCK_SIZE, true>, Args...>;
+  using vtable_type = Vtable<RAJA::cuda_work_explicit<BLOCK_SIZE, BLOCKS_PER_SM, true>, Args...>;
 
   WorkRunner() = default;
 
@@ -281,7 +283,7 @@ struct WorkRunner<
   using per_run_storage = int;
 
   template < typename WorkContainer >
-  per_run_storage run(WorkContainer const& storage, Args... args) const
+  per_run_storage run(WorkContainer const& storage, resource_type r, Args... args) const
   {
     using Iterator  = camp::decay<decltype(std::begin(storage))>;
     using IndexType = camp::decay<decltype(std::distance(std::begin(storage), std::end(storage)))>;
@@ -289,7 +291,7 @@ struct WorkRunner<
 
     per_run_storage run_storage{};
 
-    auto func = cuda_unordered_y_block_global<BLOCK_SIZE, Iterator, value_type, index_type, Args...>;
+    auto func = cuda_unordered_y_block_global<BLOCK_SIZE, BLOCKS_PER_SM, Iterator, value_type, index_type, Args...>;
 
     //
     // Compute the requested iteration space size
@@ -318,17 +320,14 @@ struct WorkRunner<
       // Setup shared memory buffers
       //
       size_t shmem = 0;
-      cudaStream_t stream = 0;
 
       {
         //
         // Launch the kernel
         //
         void* func_args[] = { (void*)&begin, (void*)&args... };
-        RAJA::cuda::launch((const void*)func, gridSize, blockSize, func_args, shmem, stream);
+        RAJA::cuda::launch((const void*)func, gridSize, blockSize, func_args, shmem, r, Async);
       }
-
-      if (!Async) { RAJA::cuda::synchronize(stream); }
 
       RAJA_FT_END;
     }

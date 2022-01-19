@@ -1,6 +1,6 @@
 .. ##
-.. ## Copyright (c) 2016-21, Lawrence Livermore National Security, LLC
-.. ## and RAJA project contributors. See the RAJA/COPYRIGHT file
+.. ## Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+.. ## and RAJA project contributors. See the RAJA/LICENSE file
 .. ## for details.
 .. ##
 .. ## SPDX-License-Identifier: (BSD-3-Clause)
@@ -13,7 +13,7 @@ RAJA Tutorial
 **********************
 
 In addition to the tutorial portion of this RAJA User Guide, we maintain
-a repository of tutorial presntation materials here `RAJA Tutorials Repo <https://github.com/LLNL/RAJA-tutorials>`_.
+a repository of tutorial presentation materials here `RAJA Tutorials Repo <https://github.com/LLNL/RAJA-tutorials>`_.
 
 This RAJA tutorial introduces RAJA concepts and capabilities via a 
 sequence of examples of increasing complexity. Complete working codes for 
@@ -49,7 +49,7 @@ A Little C++ Background
 
 RAJA makes heavy use of C++ templates and using RAJA most easily and 
 effectively is done by representing the bodies of loop kernels as C++ lambda 
-expressions. Alternatively, C++ factors can be used, but they make 
+expressions. Alternatively, C++ functors can be used, but they make 
 application source code more complex, potentially placing a significant 
 negative burden on source code readability and maintainability.
 
@@ -165,7 +165,7 @@ with respect to RAJA usage. We describe them here.
    CUDA device kernel, for that matter) must be decorated with 
    the ``__device__`` annotation; for example::
      
-     RAJA::forall<RAJA::cuda_exec>( range, [=] __device__ (int i) { ... } );
+     RAJA::forall<RAJA::cuda_exec<BLOCK_SIZE>>( range, [=] __device__ (int i) { ... } );
 
    Without this, the code will not compile and generate compiler errors
    indicating that a 'host' lambda cannot be called from 'device' code.
@@ -174,7 +174,7 @@ with respect to RAJA usage. We describe them here.
    between host-only or device-only CUDA compilation.
     
 
- * **Avoid 'host-device' annotation on a lambda that will run in host code.**
+ * **Use 'host-device' annotation on a lambda carefully.**
 
    RAJA provides the macro ``RAJA_HOST_DEVICE`` to support the dual
    CUDA annotation ``__ host__ __device__``. This makes a lambda or function
@@ -200,7 +200,7 @@ with respect to RAJA usage. We describe them here.
 
      double& ref_to_global_val = global_val;
 
-     RAJA::forall<RAJA::cuda_exec>( range, [=] __device__ (int i) { 
+     RAJA::forall<RAJA::cuda_exec<BLOCK_SIZE>>( range, [=] __device__ (int i) { 
        // use ref_to_global_val
      } );
     
@@ -220,7 +220,7 @@ with respect to RAJA usage. We describe them here.
 
      bounds.array = { 0, 1, 8, 9 };
 
-     RAJA::forall<RAJA::cuda_exec>(range, [=] __device__ (int i) {
+     RAJA::forall<RAJA::cuda_exec<BLOCK_SIZE>>(range, [=] __device__ (int i) {
        // access entries of bounds.array
      } );
 
@@ -308,3 +308,4 @@ in terms of threads and teams.
    :maxdepth: 1
 
    tutorial/teams_basic.rst
+   tutorial/naming_kernels.rst
