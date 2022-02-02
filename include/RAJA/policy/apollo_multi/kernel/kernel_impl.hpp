@@ -1,6 +1,7 @@
 #ifndef RAJA_policy_apollo_multi_kernel_impl_HPP
 #define RAJA_policy_apollo_multi_kernel_impl_HPP
 
+#include "RAJA/config.hpp"
 #include "RAJA/policy/apollo_multi/kernel.hpp"
 //#include "RAJA/policy/cuda/kernel/CudaKernel.hpp"
 
@@ -29,41 +30,30 @@ struct PostLaunchKernel {
   static void exec(Apollo::Region *region, Apollo::RegionContext *context)
   {
     region->end(context);
-    //std::cout << "PostLaunch *NOT* CudaKernelAsync\n";
   }
 };
 
-
+#if defined(RAJA_ENABLE_CUDA)
 template<typename... Args>
 struct PreLaunchKernel<RAJA::statement::CudaKernelAsync<Args...>> {
   static void exec(Apollo::Region *region, Apollo::RegionContext *context)
   {
-    using callback_t = RAJA::apollo::ApolloCallbackDataPool::callback_t;
-    callback_t *cbdata =
-        reinterpret_cast<callback_t *>(region->callback_pool->get());
-    context->isDoneCallback =
-        RAJA::apollo::ApolloCallbackHelper::isDoneCallback;
-    context->callback_arg = cbdata;
-
-    //std::cout << "PreLaunch CudaKernelAsync\n";
-    // TODO: how to handle multiple streams?
-    cudaEventRecord(cbdata->start, 0);
+    context->timer = Apollo::Timer::create<Apollo::Timer::CudaAsync>();
+    context->timer->start();
   }
 };
+#endif
 
+#if defined(RAJA_ENABLE_HIP)
 template<typename... Args>
-struct PostLaunchKernel<RAJA::statement::CudaKernelAsync<Args...>> {
+struct PreLaunchKernel<RAJA::statement::HipKernelAsync<Args...>> {
   static void exec(Apollo::Region *region, Apollo::RegionContext *context)
   {
-    using callback_t = RAJA::apollo::ApolloCallbackDataPool::callback_t;
-    callback_t *cbdata = reinterpret_cast<callback_t *>(context->callback_arg);
-    // TODO: how to handle multiple streams?
-    cudaEventRecord(cbdata->stop, 0);
-    region->end(context);
-
-    //std::cout << "PostLaunch CudaKernelAsync\n";
+    context->timer = Apollo::Timer::create<Apollo::Timer::HipAsync>();
+    context->timer->start();
   }
 };
+#endif
 
 template <camp::idx_t idx,
           camp::idx_t num_policies,

@@ -32,9 +32,13 @@
 #include "apollo/Region.h"
 
 #if defined(RAJA_CUDA_ACTIVE)
-
 #include <cuda.h>
 #include <cuda_runtime.h>
+#endif
+
+#if defined(RAJA_HIP_ACTIVE)
+#include <hip_runtime.h>
+#endif
 
 namespace RAJA {
 
@@ -44,6 +48,7 @@ struct ApolloCallbackDataPool : Apollo::CallbackDataPool {
 
 struct callback_t {
     ApolloCallbackDataPool *data_pool;
+#if defined(RAJA_CUDA_ACTIVE)
     cudaEvent_t start;
     cudaEvent_t stop;
   };
