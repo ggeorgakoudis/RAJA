@@ -167,17 +167,13 @@ RAJA_INLINE void kernel_impl(ApolloKernelMultiPolicy<KernelPolicyList> &&p,
   static Apollo *apollo = Apollo::instance();
   static Apollo::Region *apolloRegion = nullptr;
   static int policy_index = 0;
-  // TODO: Move the callback data pool to generic apollo header
-  // TODO: Fix pool for kernels
-  static RAJA::apollo::ApolloCallbackDataPool *callback_pool = nullptr;
+
   if (apolloRegion == nullptr) {
     std::string code_location = apollo->getCallpathOffset();
-    callback_pool = new RAJA::apollo::ApolloCallbackDataPool(64, 64);
     apolloRegion =
         new Apollo::Region(/* num features */ camp::tuple_size<SegmentTuple>::value,
                            /* region id */ code_location.c_str(),
                            /* num policies */ camp::size<KernelPolicyList>::value,
-                           /* callback pool */ callback_pool
         );
   }
 
