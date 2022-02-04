@@ -113,7 +113,7 @@ template <typename PolicyType,
           typename ParamTuple,
           typename Resource,
           typename... Bodies>
-RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource(SegmentTuple &&segments,
+RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource_impl(SegmentTuple &&segments,
                                                                   ParamTuple &&params,
                                                                   Resource resource,
                                                                   Bodies &&... bodies)
@@ -166,13 +166,31 @@ RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource(SegmentTuple &
 
 template <typename PolicyType,
           typename SegmentTuple,
+          typename ParamTuple,
+          typename Resource,
+          typename... Bodies>
+RAJA_INLINE resources::EventProxy<Resource> kernel_param_resource(SegmentTuple &&segments,
+                                                                  ParamTuple &&params,
+                                                                  Resource resource,
+                                                                  Bodies &&... bodies)
+{
+  return RAJA::kernel_param_resource_impl<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
+                                                 std::forward<ParamTuple>(params),
+                                                 resource,
+                                                 std::forward<Bodies>(bodies)...);
+
+}
+
+
+template <typename PolicyType,
+          typename SegmentTuple,
           typename Resource,
           typename... Bodies>
 RAJA_INLINE resources::EventProxy<Resource> kernel_resource(SegmentTuple &&segments,
                                                             Resource resource,
                                                             Bodies &&... bodies)
 {
-  return RAJA::kernel_param_resource<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
+  return RAJA::kernel_param_resource_impl<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
                                                  RAJA::make_tuple(),
                                                  resource,
                                                  std::forward<Bodies>(bodies)...);
@@ -187,7 +205,7 @@ RAJA_INLINE resources::EventProxy<resources::resource_from_pol_t<typename Policy
                                                                                            Bodies &&... bodies)
 {
   auto res = resources::get_default_resource<typename PolicyType::stmtlist>();
-  return RAJA::kernel_param_resource<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
+  return RAJA::kernel_param_resource_impl<typename PolicyType::stmtlist>(std::forward<SegmentTuple>(segments),
                                                  std::forward<ParamTuple>(params),
                                                  res,
                                                  std::forward<Bodies>(bodies)...);
@@ -200,7 +218,7 @@ template <typename... Stmts, typename SegmentTuple, typename Resource, typename.
 RAJA_INLINE resources::EventProxy<Resource>
 kernel(KernelPolicy<Stmts...> &&p, SegmentTuple &&segments, Resource &res, Bodies &&...bodies)
 {
-  return RAJA::kernel_param_resource<typename KernelPolicy<Stmts...>::stmtlist>(
+  return RAJA::kernel_param_resource_impl<typename KernelPolicy<Stmts...>::stmtlist>(
       std::forward<SegmentTuple>(segments),
       RAJA::make_tuple(),
       res,

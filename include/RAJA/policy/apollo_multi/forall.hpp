@@ -75,21 +75,7 @@ namespace apollo_multi
 
 #include <iostream> // ggout
 
-template <typename Pol>
-static RAJA_INLINE
-concepts::enable_if<
-  type_traits::is_cuda_policy<Pol>,
-  RAJA::launch_is<Pol, RAJA::Launch::async>
->
-PreLaunch(resources::Cuda &cuda_res, Apollo::Region *region, Apollo::RegionContext *context) {
-  using callback_t = RAJA::apollo::ApolloCallbackDataPool::callback_t;
-  callback_t *cbdata =
-      reinterpret_cast<callback_t *>(region->callback_pool->get());
-  context->isDoneCallback = RAJA::apollo::ApolloCallbackHelper::isDoneCallback;
-  context->callback_arg = cbdata;
-  //std::cout << "prelaunch cuda async -> setting event_record and context\n";
-  cudaEventRecord(cbdata->start, cuda_res.get_stream());
-}
+#if defined(RAJA_ENABLE_CUDA)
 
 template <typename Pol>
 static RAJA_INLINE
@@ -97,13 +83,26 @@ concepts::enable_if<
   type_traits::is_cuda_policy<Pol>,
   RAJA::launch_is<Pol, RAJA::Launch::async>
 >
-PostLaunch(resources::Cuda &cuda_res, Apollo::Region *region, Apollo::RegionContext *context) {
-  using callback_t = RAJA::apollo::ApolloCallbackDataPool::callback_t;
-  callback_t *cbdata = reinterpret_cast<callback_t *>(context->callback_arg);
-  cudaEventRecord(cbdata->stop, cuda_res.get_stream());
-  region->end(context);
-  //std::cout << "postlaunch cuda async -> call region->end() with callback and cbdata\n";
+PreLaunch(resources::Cuda &cuda_res, Apollo::Region *region, Apollo::RegionContext *context) {
+  context->timer = Apollo::Timer::create<Apollo::Timer::CudaAsync>();
+  context->timer->start();
 }
+
+#endif
+
+
+#if defined(RAJA_ENABLE_HIP)
+template <typename Pol>
+static RAJA_INLINE
+concepts::enable_if<
+  type_traits::is_hip_policy<Pol>,
+  RAJA::launch_is<Pol, RAJA::Launch::async>
+>
+PreLaunch(resources::Hip &hip_res, Apollo::Region *region, Apollo::RegionContext *context) {
+  context->timer = Apollo::Timer::create<Apollo::Timer::HipAsync>();
+  context->timer->start();
+}
+#endif
 
 template <typename Pol, typename Res>
 static RAJA_INLINE void PreLaunch(Res &r, Apollo::Region *region, Apollo::RegionContext *context) {
@@ -193,16 +192,12 @@ RAJA_INLINE void forall_impl(const apollo_multi_exec<PolicyList> &,
   static Apollo *apollo = Apollo::instance();
   static Apollo::Region *apolloRegion = nullptr;
   static int policy_index = 0;
-  // TODO: Move the callback data pool to generic apollo header
-  static RAJA::apollo::ApolloCallbackDataPool *callback_pool = nullptr;
   if (apolloRegion == nullptr) {
     std::string code_location = apollo->getCallpathOffset();
-    callback_pool = new RAJA::apollo::ApolloCallbackDataPool(64, 64);
     apolloRegion =
         new Apollo::Region(/* num features */ 1,
                            /* region id */ code_location.c_str(),
-                           /* num policies */ camp::size<PolicyList>::value,
-                           /* callback pool */ callback_pool
+                           /* num policies */ camp::size<PolicyList>::value
         );
   }
 

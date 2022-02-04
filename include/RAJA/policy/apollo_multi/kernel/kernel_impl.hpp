@@ -173,7 +173,7 @@ RAJA_INLINE void kernel_impl(ApolloKernelMultiPolicy<KernelPolicyList> &&p,
     apolloRegion =
         new Apollo::Region(/* num features */ camp::tuple_size<SegmentTuple>::value,
                            /* region id */ code_location.c_str(),
-                           /* num policies */ camp::size<KernelPolicyList>::value,
+                           /* num policies */ camp::size<KernelPolicyList>::value
         );
   }
 

@@ -83,10 +83,10 @@
 #if defined(RAJA_ENABLE_TARGET_OPENMP)
 #include "RAJA/policy/openmp_target.hpp"
 #endif
+#endif
 
 #if defined(RAJA_ENABLE_APOLLO)
 #include "RAJA/policy/apollo_multi.hpp"
-#endif
 #endif
 
 #if defined(RAJA_ENABLE_DESUL_ATOMICS)

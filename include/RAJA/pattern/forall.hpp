@@ -486,7 +486,7 @@ forall(ExecutionPolicy&& p, Res &r, Container&& c, LoopBody&& loop_body)
                                           std::forward<Container>(c),
                                           std::move(loop_body));
 
-  return resources::EventProxy<Res>(&r);
+  return resources::EventProxy<Res>(r);
 }
 template <typename ExecutionPolicy, typename Res, typename Container, typename LoopBody>
 RAJA_INLINE concepts::enable_if_t<

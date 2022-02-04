@@ -37,10 +37,8 @@
 #endif
 
 #if defined(RAJA_HIP_ACTIVE)
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 #endif
-
-#endif // RAJA_CUDA_ACTIVE
 
 #include "RAJA/policy/apollo_multi/forall.hpp"
 #include "RAJA/policy/apollo_multi/kernel.hpp"
