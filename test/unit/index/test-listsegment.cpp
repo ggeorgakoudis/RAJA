@@ -1,5 +1,5 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -37,17 +37,20 @@ TYPED_TEST(ListSegmentUnitTest, Constructors)
   }
 
   RAJA::TypedListSegment<TypeParam> list1( &idx[0], idx.size(), host_res);
-  RAJA::TypedListSegment<TypeParam> copied(list1);
+  ASSERT_EQ(list1.size(), idx.size());
+  ASSERT_EQ(list1.getIndexOwnership(), RAJA::Owned);
 
+  RAJA::TypedListSegment<TypeParam> copied(list1);
   ASSERT_EQ(list1, copied);
+  ASSERT_EQ(copied.getIndexOwnership(), RAJA::Unowned);
 
   RAJA::TypedListSegment<TypeParam> moved(std::move(list1));
-
+  ASSERT_EQ(list1.size(), 0);
   ASSERT_EQ(moved, copied);
 
   RAJA::TypedListSegment<TypeParam> container(idx, host_res);
-
-  ASSERT_EQ(list1, container); 
+  ASSERT_EQ(container.getIndexOwnership(), RAJA::Owned);
+  ASSERT_EQ(moved, container); 
 }
 
 TYPED_TEST(ListSegmentUnitTest, Swaps)

@@ -9,7 +9,7 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -23,7 +23,7 @@
 #include <utility>
 #include <cstddef>
 
-#include "RAJA/pattern/WorkGroup/Vtable.hpp"
+#include "RAJA/pattern/WorkGroup/Dispatcher.hpp"
 
 
 namespace RAJA
@@ -35,7 +35,7 @@ namespace detail
 /*!
  * A struct that gives a generic way to layout memory for different loops
  */
-template < size_t size, typename Vtable_T >
+template < size_t size, typename Dispatcher_T >
 struct WorkStruct;
 
 /*!
@@ -44,22 +44,22 @@ struct WorkStruct;
  *   offsetof(GenericWorkStruct<>, obj) == offsetof(WorkStruct<size>, obj)
  *   sizeof(GenericWorkStruct) <= sizeof(WorkStruct<size>)
  */
-template < typename Vtable_T >
-using GenericWorkStruct = WorkStruct<alignof(std::max_align_t), Vtable_T>;
+template < typename Dispatcher_T >
+using GenericWorkStruct = WorkStruct<RAJA_MAX_ALIGN, Dispatcher_T>;
 
-template < size_t size, typename VtableID, typename ... CallArgs >
-struct WorkStruct<size, Vtable<VtableID, CallArgs...>>
+template < size_t size, Platform platform, typename dispatch_policy, typename DispatcherID, typename ... CallArgs >
+struct WorkStruct<size, Dispatcher<platform, dispatch_policy, DispatcherID, CallArgs...>>
 {
-  using vtable_type = Vtable<VtableID, CallArgs...>;
+  using dispatcher_type = Dispatcher<platform, dispatch_policy, DispatcherID, CallArgs...>;
 
   // construct a WorkStruct with a value of type holder from the args and
   // check a variety of constraints at compile time
   template < typename holder, typename ... holder_ctor_args >
   static RAJA_INLINE
-  void construct(void* ptr, const vtable_type* vtable, holder_ctor_args&&... ctor_args)
+  void construct(void* ptr, const dispatcher_type* dispatcher, holder_ctor_args&&... ctor_args)
   {
-    using true_value_type = WorkStruct<sizeof(holder), vtable_type>;
-    using value_type = GenericWorkStruct<vtable_type>;
+    using true_value_type = WorkStruct<sizeof(holder), dispatcher_type>;
+    using value_type = GenericWorkStruct<dispatcher_type>;
 
     static_assert(sizeof(holder) <= sizeof(true_value_type::obj),
         "holder must fit in WorkStruct::obj");
@@ -71,11 +71,10 @@ struct WorkStruct<size, Vtable<VtableID, CallArgs...>>
         "WorkStruct and GenericWorkStruct must have obj at the same offset");
     static_assert(sizeof(value_type) <= sizeof(true_value_type),
         "WorkStruct must not be smaller than GenericWorkStruct");
-
     true_value_type* value_ptr = static_cast<true_value_type*>(ptr);
 
-    value_ptr->vtable = vtable;
-    value_ptr->call_function_ptr = vtable->call_function_ptr;
+    value_ptr->dispatcher = dispatcher;
+    value_ptr->invoke = dispatcher->invoke;
     new(&value_ptr->obj) holder(std::forward<holder_ctor_args>(ctor_args)...);
   }
 
@@ -84,28 +83,35 @@ struct WorkStruct<size, Vtable<VtableID, CallArgs...>>
   void move_destroy(WorkStruct* value_dst,
                     WorkStruct* value_src)
   {
-    value_dst->vtable = value_src->vtable;
-    value_dst->call_function_ptr = value_src->call_function_ptr;
-    value_dst->vtable->move_construct_destroy_function_ptr(&value_dst->obj, &value_src->obj);
+    value_dst->dispatcher = value_src->dispatcher;
+    value_dst->invoke = value_src->invoke;
+    value_dst->dispatcher->move_construct_destroy(&value_dst->obj, &value_src->obj);
   }
 
   // destroy the value ptr
   static RAJA_INLINE
   void destroy(WorkStruct* value_ptr)
   {
-    value_ptr->vtable->destroy_function_ptr(&value_ptr->obj);
+    value_ptr->dispatcher->destroy(&value_ptr->obj);
   }
 
-  // call the call operator of the value ptr with args
-  static RAJA_HOST_DEVICE RAJA_INLINE
-  void call(const WorkStruct* value_ptr, CallArgs... args)
+  // invoke the call operator of the value ptr with args
+  static RAJA_INLINE
+  void host_call(const WorkStruct* value_ptr, CallArgs... args)
   {
-    value_ptr->call_function_ptr(&value_ptr->obj, std::forward<CallArgs>(args)...);
+    value_ptr->invoke(&value_ptr->obj, std::forward<CallArgs>(args)...);
+  }
+  ///
+  // invoke the call operator of the value ptr with args
+  static RAJA_DEVICE RAJA_INLINE
+  void device_call(const WorkStruct* value_ptr, CallArgs... args)
+  {
+    value_ptr->invoke(&value_ptr->obj, std::forward<CallArgs>(args)...);
   }
 
-  const vtable_type* vtable;
-  typename vtable_type::call_sig call_function_ptr;
-  typename std::aligned_storage<size, alignof(std::max_align_t)>::type obj;
+  const dispatcher_type* dispatcher;
+  typename dispatcher_type::invoker_type invoke;
+  typename std::aligned_storage<size, RAJA_MAX_ALIGN>::type obj;
 };
 
 }  // namespace detail

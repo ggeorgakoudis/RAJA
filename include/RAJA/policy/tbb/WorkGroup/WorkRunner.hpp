@@ -9,7 +9,7 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -35,12 +35,14 @@ namespace detail
  * Runs work in a storage container in order
  * and returns any per run resources
  */
-template <typename ALLOCATOR_T,
+template <typename DISPATCH_POLICY_T,
+          typename ALLOCATOR_T,
           typename INDEX_T,
           typename ... Args>
 struct WorkRunner<
         RAJA::tbb_work,
         RAJA::ordered,
+        DISPATCH_POLICY_T,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
@@ -48,6 +50,7 @@ struct WorkRunner<
         RAJA::tbb_for_exec,
         RAJA::tbb_work,
         RAJA::ordered,
+        DISPATCH_POLICY_T,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
@@ -57,12 +60,14 @@ struct WorkRunner<
  * Runs work in a storage container in reverse order
  * and returns any per run resources
  */
-template <typename ALLOCATOR_T,
+template <typename DISPATCH_POLICY_T,
+          typename ALLOCATOR_T,
           typename INDEX_T,
           typename ... Args>
 struct WorkRunner<
         RAJA::tbb_work,
         RAJA::reverse_ordered,
+        DISPATCH_POLICY_T,
         ALLOCATOR_T,
         INDEX_T,
         Args...>
@@ -70,6 +75,7 @@ struct WorkRunner<
         RAJA::tbb_for_exec,
         RAJA::tbb_work,
         RAJA::reverse_ordered,
+        DISPATCH_POLICY_T,
         ALLOCATOR_T,
         INDEX_T,
         Args...>

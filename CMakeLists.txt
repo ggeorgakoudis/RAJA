@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+# Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 # and RAJA project contributors. See the RAJA/LICENSE file for details.
 # SPDX-License-Identifier: (BSD-3-Clause)
 ###############################################################################
@@ -14,9 +14,9 @@ endif()
 include(CMakeDependentOption)
 
 # Set version number
-set(RAJA_VERSION_MAJOR 0)
-set(RAJA_VERSION_MINOR 14)
-set(RAJA_VERSION_PATCHLEVEL 0)
+set(RAJA_VERSION_MAJOR 2022)
+set(RAJA_VERSION_MINOR 10)
+set(RAJA_VERSION_PATCHLEVEL 4)
 
 if (RAJA_LOADED AND (NOT RAJA_LOADED STREQUAL "${RAJA_VERSION_MAJOR}.${RAJA_VERSION_MINOR}.${RAJA_VERSION_PATCHLEVEL}"))
   message(FATAL_ERROR "You are mixing RAJA versions. Loaded is ${RAJA_LOADED}, expected ${RAJA_VERSION_MAJOR}.${RAJA_VERSION_MINOR}.${RAJA_VERSION_PATCHLEVEL}")
@@ -44,14 +44,21 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/thirdparty" ${CMAKE_MODULE_PA
 
 include(cmake/SetupRajaOptions.cmake)
 
-cmake_minimum_required(VERSION 3.9)
+if (ENABLE_HIP)
+  cmake_minimum_required(VERSION 3.23)
+else()
+  cmake_minimum_required(VERSION 3.20)
+endif()
 
 # Detect C++ standard and add appropriate flag _before_ loading BLT
 set(COMPILERS_KNOWN_TO_CMAKE33 AppleClang Clang GNU MSVC)
 
 include(CheckCXXCompilerFlag)
 if(NOT DEFINED BLT_CXX_STD)
-  if("cxx_std_17" IN_LIST CMAKE_CXX_KNOWN_FEATURES)
+  if("cxx_std_20" IN_LIST CMAKE_CXX_KNOWN_FEATURES)
+    set(BLT_CXX_STD c++20 CACHE STRING "Version of C++ standard")
+    message("Using C++ standard: ${BLT_CXX_STD}")
+  elseif("cxx_std_17" IN_LIST CMAKE_CXX_KNOWN_FEATURES)
     set(BLT_CXX_STD c++17 CACHE STRING "Version of C++ standard")
     message("Using C++ standard: ${BLT_CXX_STD}")
   elseif("cxx_std_14" IN_LIST CMAKE_CXX_KNOWN_FEATURES)
@@ -111,27 +118,22 @@ include(cmake/SetupBasics.cmake)
 include(cmake/SetupPackages.cmake)
 
 if (RAJA_ENABLE_CUDA)
-  if (DEFINED CUDA_ARCH)
-    if (CUDA_ARCH MATCHES "^sm_*")
-      if ("${CUDA_ARCH}" STRLESS "sm_35")
-        message( FATAL_ERROR "RAJA requires minimum CUDA compute architecture of sm_35")
-      endif()
-    endif()
-    if (CUDA_ARCH MATCHES "^compute_*")
-      if ("${CUDA_ARCH}" STRLESS "compute_35")
-        message( FATAL_ERROR "RAJA requires minimum CUDA compute architecture of compute_35")
-      endif()
+  if (DEFINED CMAKE_CUDA_ARCHITECTURES)
+    if ("${CMAKE_CUDA_ARCHITECTURES}" STRLESS "35")
+      message( FATAL_ERROR "RAJA requires minimum CUDA compute architecture of 35")
     endif()
   else()
-    message(STATUS "CUDA compute architecture set to RAJA default sm_35 since it was not specified")
-    set(CUDA_ARCH "sm_35" CACHE STRING "Set CUDA_ARCH to RAJA minimum supported" FORCE)
+    message(STATUS "CUDA compute architecture set to RAJA default 35 since it was not specified")
+    set(CMAKE_CUDA_ARCHITECTURES "35" CACHE STRING "Set CMAKE_CUDA_ARCHITECTURES to RAJA minimum supported" FORCE)
   endif()
+  message(STATUS "CMAKE_CUDA_ARCHITECTURES set to ${CMAKE_CUDA_ARCHITECTURES}") 
   if ( (CMAKE_CXX_COMPILER_ID MATCHES GNU) AND (CMAKE_SYSTEM_PROCESSOR MATCHES ppc64le) )
     if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.0)
       set (CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -mno-float128")
     endif ()
   endif ()
 endif()
+
 
 # Setup vendor-specific compiler flags
 include(cmake/SetupCompilers.cmake)
@@ -172,8 +174,9 @@ if(RAJA_ENABLE_CUDA)
 endif()
 
 if(RAJA_ENABLE_HIP)
-  if("${HIP_VERSION_STRING}" VERSION_LESS "3.5")
-    message(FATAL_ERROR "Trying to use HIP/ROCm version ${HIP_VERSION_STRING}. RAJA requires HIP/ROCm version 3.5 or newer. ")
+  message(STATUS "HIP version: ${hip_VERSION}")
+  if("${hip_VERSION}" VERSION_LESS "3.5")
+    message(FATAL_ERROR "Trying to use HIP/ROCm version ${hip_VERSION}. RAJA requires HIP/ROCm version 3.5 or newer. ")
   endif()
 endif()
 
@@ -197,7 +200,10 @@ endif ()
 if (RAJA_ENABLE_HIP)
   set(raja_depends
     ${raja_depends}
-    hip)
+    blt::hip)
+  set(raja_depends
+    ${raja_depends}
+    blt::hip_runtime)
   if(RAJA_ENABLE_ROCTX)
       set(raja_depends
       ${raja_depends}
@@ -212,6 +218,7 @@ if (RAJA_ENABLE_EXTERNAL_ROCPRIM)
 endif ()
 
 if (RAJA_ENABLE_SYCL)
+  set (RAJA_ENABLE_DESUL_ATOMICS "On")
   set (raja_depends
     ${raja_depends}
     sycl)
@@ -259,6 +266,14 @@ camp source repository")
       add_subdirectory(tpl/camp)
     endif()
   endif (EXTERNAL_CAMP_SOURCE_DIR)
+
+  if (RAJA_ENABLE_TARGET_OPENMP)
+    message(STATUS "Setting CAMP_ENABLE_TARGET_OPENMP to ${RAJA_ENABLE_TARGET_OPENMP}")
+    blt_add_target_definitions(
+      TO camp
+      SCOPE INTERFACE
+      TARGET_DEFINITIONS CAMP_ENABLE_TARGET_OPENMP)
+  endif()
 endif (NOT TARGET camp)
 
 set (raja_defines)
@@ -277,13 +292,13 @@ blt_add_library(
 
 
 install(TARGETS RAJA
-  EXPORT RAJA
+  EXPORT RAJATargets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib
   )
 
-install(EXPORT RAJA DESTINATION lib/cmake/raja)
+install(EXPORT RAJATargets DESTINATION lib/cmake/raja)
 
 target_include_directories(RAJA
   PUBLIC

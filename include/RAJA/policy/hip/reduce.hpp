@@ -12,7 +12,7 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -251,6 +251,26 @@ RAJA_DEVICE RAJA_INLINE T warp_reduce(T val, T RAJA_UNUSED_ARG(identity))
   return temp;
 }
 
+/*!
+ * Allreduce values in a warp.
+ *
+ *
+ * This does a butterfly pattern leaving each lane with the full reduction
+ *
+ */
+template <typename Combiner, typename T>
+RAJA_DEVICE RAJA_INLINE T warp_allreduce(T val)
+{
+  T temp = val;
+
+  for (int i = 1; i < policy::hip::WARP_SIZE; i *= 2) {
+    T rhs = shfl_xor_sync(temp, i);
+    Combiner{}(temp, rhs);
+  }
+
+  return temp;
+}
+
 //! reduce values in block into thread 0
 template <typename Combiner, typename T>
 RAJA_DEVICE RAJA_INLINE T block_reduce(T val, T identity)
@@ -377,6 +397,134 @@ RAJA_DEVICE RAJA_INLINE bool grid_reduce(T& val,
 
   return lastBlock && threadId == 0;
 }
+
+namespace expt {
+
+template <typename Combiner, typename T>
+RAJA_DEVICE RAJA_INLINE T block_reduce(T val, T identity)
+{
+  int numThreads = blockDim.x * blockDim.y * blockDim.z;
+
+  int threadId = threadIdx.x + blockDim.x * threadIdx.y +
+                 (blockDim.x * blockDim.y) * threadIdx.z;
+
+  int warpId = threadId % RAJA::policy::hip::WARP_SIZE;
+  int warpNum = threadId / RAJA::policy::hip::WARP_SIZE;
+
+  T temp = val;
+
+  if (numThreads % RAJA::policy::hip::WARP_SIZE == 0) {
+
+    // reduce each warp
+    for (int i = 1; i < RAJA::policy::hip::WARP_SIZE; i *= 2) {
+      T rhs = RAJA::hip::impl::shfl_xor_sync(temp, i);
+      temp = Combiner{}(temp, rhs);
+    }
+
+  } else {
+
+    // reduce each warp
+    for (int i = 1; i < RAJA::policy::hip::WARP_SIZE; i *= 2) {
+      int srcLane = threadId ^ i;
+      T rhs = RAJA::hip::impl::shfl_sync(temp, srcLane);
+      // only add from threads that exist (don't double count own value)
+      if (srcLane < numThreads) {
+        temp = Combiner{}(temp, rhs);
+      }
+    }
+  }
+
+  static_assert(RAJA::policy::hip::MAX_WARPS <= RAJA::policy::hip::WARP_SIZE,
+               "Max Warps must be less than or equal to Warp Size for this algorithm to work");
+
+  // reduce per warp values
+  if (numThreads > RAJA::policy::hip::WARP_SIZE) {
+
+    // Need to separate declaration and initialization for clang-hip
+    __shared__ unsigned char tmpsd[sizeof(RAJA::detail::SoAArray<T, RAJA::policy::hip::MAX_WARPS>)];
+
+    // Partial placement new: Should call new(tmpsd) here but recasting memory
+    // to avoid calling constructor/destructor in shared memory.
+    RAJA::detail::SoAArray<T, RAJA::policy::hip::MAX_WARPS> * sd = reinterpret_cast<RAJA::detail::SoAArray<T, RAJA::policy::hip::MAX_WARPS> *>(tmpsd);
+
+    // write per warp values to shared memory
+    if (warpId == 0) {
+      sd->set(warpNum, temp);
+    }
+
+    __syncthreads();
+
+    if (warpNum == 0) {
+
+      // read per warp values
+      if (warpId * RAJA::policy::hip::WARP_SIZE < numThreads) {
+        temp = sd->get(warpId);
+      } else {
+        temp = identity;
+      }
+
+      for (int i = 1; i < RAJA::policy::hip::MAX_WARPS; i *= 2) {
+        T rhs = RAJA::hip::impl::shfl_xor_sync(temp, i);
+        temp = Combiner{}(temp, rhs);
+      }
+    }
+
+    __syncthreads();
+  }
+
+  return temp;
+}
+
+
+template <typename OP, typename T>
+RAJA_DEVICE RAJA_INLINE bool grid_reduce(RAJA::expt::detail::Reducer<OP, T>& red) {
+
+  int numBlocks = gridDim.x * gridDim.y * gridDim.z;
+  int numThreads = blockDim.x * blockDim.y * blockDim.z;
+  unsigned int wrap_around = numBlocks - 1;
+
+  int blockId = blockIdx.x + gridDim.x * blockIdx.y +
+                (gridDim.x * gridDim.y) * blockIdx.z;
+
+  int threadId = threadIdx.x + blockDim.x * threadIdx.y +
+                 (blockDim.x * blockDim.y) * threadIdx.z;
+
+  T temp = block_reduce<OP>(red.val, OP::identity());
+
+  // one thread per block writes to device_mem
+  bool lastBlock = false;
+  if (threadId == 0) {
+    red.device_mem.set(blockId, temp);
+    // ensure write visible to all threadblocks
+    __threadfence();
+    // increment counter, (wraps back to zero if old count == wrap_around)
+    unsigned int old_count = ::atomicInc(red.device_count, wrap_around);
+    lastBlock = (old_count == wrap_around);
+  }
+
+  // returns non-zero value if any thread passes in a non-zero value
+  lastBlock = __syncthreads_or(lastBlock);
+
+  // last block accumulates values from device_mem
+  if (lastBlock) {
+    temp = OP::identity();
+
+    for (int i = threadId; i < numBlocks; i += numThreads) {
+      temp = OP{}(temp, red.device_mem.get(i));
+    }
+
+    temp = block_reduce<OP>(temp, OP::identity());
+
+    // one thread returns value
+    if (threadId == 0) {
+      *(red.devicetarget) = temp;
+    }
+  }
+
+  return lastBlock && threadId == 0;
+}
+
+} //  namespace expt
 
 
 //! reduce values in grid into thread 0 of last running block
@@ -552,7 +700,7 @@ public:
   //! get new value for use in resource
   T* new_value(::RAJA::resources::Hip res)
   {
-#if defined(RAJA_ENABLE_OPENMP) && defined(_OPENMP)
+#if defined(RAJA_ENABLE_OPENMP)
     lock_guard<omp::mutex> lock(m_mutex);
 #endif
     ResourceNode* rn = resource_list;
@@ -599,7 +747,7 @@ public:
 
   ~PinnedTally() { free_list(); }
 
-#if defined(RAJA_ENABLE_OPENMP) && defined(_OPENMP)
+#if defined(RAJA_ENABLE_OPENMP)
   omp::mutex m_mutex;
 #endif
 
@@ -642,14 +790,6 @@ struct Reduce_Data {
   {
   }
 
-  void reset(T initValue, T identity_ = T())
-  {
-    value = initValue;
-    identity = identity_;
-    device_count = nullptr;
-    own_device_ptr = false;
-  }
-
   RAJA_HOST_DEVICE
   Reduce_Data(const Reduce_Data& other)
       : value{other.identity},
@@ -659,6 +799,8 @@ struct Reduce_Data {
         own_device_ptr{false}
   {
   }
+
+  Reduce_Data& operator=(const Reduce_Data&) = default;
 
   //! initialize output to identity to ensure never read
   //  uninitialized memory
@@ -728,15 +870,6 @@ struct ReduceAtomic_Data {
   {
   }
 
-  void reset(T initValue, T identity_ = Combiner::identity())
-  {
-    value = initValue;
-    identity = identity_;
-    device_count = nullptr;
-    device = nullptr;
-    own_device_ptr = false;
-  }
-
   RAJA_HOST_DEVICE
   ReduceAtomic_Data(const ReduceAtomic_Data& other)
       : value{other.identity},
@@ -746,6 +879,8 @@ struct ReduceAtomic_Data {
         own_device_ptr{false}
   {
   }
+
+  ReduceAtomic_Data& operator=(const ReduceAtomic_Data&) = default;
 
   //! initialize output to identity to ensure never read
   //  uninitialized memory
@@ -820,7 +955,7 @@ public:
   //  reducer in host device lambda not being used on device.
   RAJA_HOST_DEVICE
   Reduce(const Reduce& other)
-#if !defined(RAJA_DEVICE_CODE)
+#if !defined(RAJA_GPU_DEVICE_COMPILE_PASS_ACTIVE)
       : parent{other.parent},
 #else
       : parent{&other},
@@ -828,11 +963,11 @@ public:
         tally_or_val_ptr{other.tally_or_val_ptr},
         val(other.val)
   {
-#if !defined(RAJA_DEVICE_CODE)
+#if !defined(RAJA_GPU_DEVICE_COMPILE_PASS_ACTIVE)
     if (parent) {
       if (val.setupForDevice()) {
         tally_or_val_ptr.val_ptr =
-            tally_or_val_ptr.list->new_value(*currentResource());
+            tally_or_val_ptr.list->new_value(currentResource());
         val.init_grid_val(tally_or_val_ptr.val_ptr);
         parent = nullptr;
       }
@@ -845,13 +980,13 @@ public:
   RAJA_HOST_DEVICE
   ~Reduce()
   {
-#if !defined(RAJA_DEVICE_CODE)
+#if !defined(RAJA_GPU_DEVICE_COMPILE_PASS_ACTIVE)
     if (parent == this) {
       delete tally_or_val_ptr.list;
       tally_or_val_ptr.list = nullptr;
     } else if (parent) {
       if (val.value != val.identity) {
-#if defined(RAJA_ENABLE_OPENMP) && defined(_OPENMP)
+#if defined(RAJA_ENABLE_OPENMP)
         lock_guard<omp::mutex> lock(tally_or_val_ptr.list->m_mutex);
 #endif
         parent->combine(val.value);
@@ -1024,15 +1159,29 @@ class ReduceMinLoc<hip_reduce_base<maybe_atomic>, T, IndexType>
 
 public:
   using value_type = RAJA::reduce::detail::ValueLoc<T, IndexType>;
-  using Base = hip::
-      Reduce<RAJA::reduce::min<value_type>, value_type, maybe_atomic>;
+  using Combiner = RAJA::reduce::min<value_type>;
+  using NonLocCombiner = RAJA::reduce::min<T>;
+  using Base = hip::Reduce<Combiner, value_type, maybe_atomic>;
   using Base::Base;
 
   //! constructor requires a default value for the reducer
-  ReduceMinLoc(T init_val, IndexType init_idx)
-      : Base(value_type(init_val, init_idx))
+  ReduceMinLoc(T init_val, IndexType init_idx,
+               T identity_val = NonLocCombiner::identity(),
+               IndexType identity_idx = RAJA::reduce::detail::DefaultLoc<IndexType>().value())
+      : Base(value_type(init_val, init_idx), value_type(identity_val, identity_idx))
   {
   }
+
+  //! reset requires a default value for the reducer
+  // this must be here to hide Base::reset
+  void reset(T init_val,
+             IndexType init_idx = RAJA::reduce::detail::DefaultLoc<IndexType>().value(),
+             T identity_val = NonLocCombiner::identity(),
+             IndexType identity_idx = RAJA::reduce::detail::DefaultLoc<IndexType>().value())
+  {
+    Base::reset(value_type(init_val, init_idx), value_type(identity_val, identity_idx));
+  }
+
   //! reducer function; updates the current instance's state
   RAJA_HOST_DEVICE
   const ReduceMinLoc& minloc(T rhs, IndexType loc) const
@@ -1061,15 +1210,29 @@ class ReduceMaxLoc<hip_reduce_base<maybe_atomic>, T, IndexType>
 {
 public:
   using value_type = RAJA::reduce::detail::ValueLoc<T, IndexType, false>;
-  using Base = hip::
-      Reduce<RAJA::reduce::max<value_type>, value_type, maybe_atomic>;
+  using Combiner = RAJA::reduce::max<value_type>;
+  using NonLocCombiner = RAJA::reduce::max<T>;
+  using Base = hip::Reduce<Combiner, value_type, maybe_atomic>;
   using Base::Base;
 
   //! constructor requires a default value for the reducer
-  ReduceMaxLoc(T init_val, IndexType init_idx)
-      : Base(value_type(init_val, init_idx))
+  ReduceMaxLoc(T init_val, IndexType init_idx,
+               T identity_val = NonLocCombiner::identity(),
+               IndexType identity_idx = RAJA::reduce::detail::DefaultLoc<IndexType>().value())
+      : Base(value_type(init_val, init_idx), value_type(identity_val, identity_idx))
   {
   }
+
+  //! reset requires a default value for the reducer
+  // this must be here to hide Base::reset
+  void reset(T init_val,
+             IndexType init_idx = RAJA::reduce::detail::DefaultLoc<IndexType>().value(),
+             T identity_val = NonLocCombiner::identity(),
+             IndexType identity_idx = RAJA::reduce::detail::DefaultLoc<IndexType>().value())
+  {
+    Base::reset(value_type(init_val, init_idx), value_type(identity_val, identity_idx));
+  }
+
   //! reducer function; updates the current instance's state
   RAJA_HOST_DEVICE
   const ReduceMaxLoc& maxloc(T rhs, IndexType loc) const

@@ -1,21 +1,22 @@
 ###############################################################################
-# Copyright (c) 2016-21, Lawrence Livermore National Security, LLC
-# and RAJA project contributors. See the RAJA/COPYRIGHT file for details.
+# Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
+# and RAJA project contributors. See the RAJA/LICENSE file for details.
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
 ###############################################################################
 
 #
-# List of test types for future expansion, if needed. 
+# List of test types for future expansion, if needed.
 #
 set(TESTTYPES PermutedView OffsetView PermutedOffsetView)
 set(DIMTYPES 2D 3D)
 
 #
-# Generate tests for each enabled RAJA back-end. 
-# 
+# Generate tests for each enabled RAJA back-end.
+#
 # Note: KERNEL_BACKENDS is defined in ../CMakeLists.txt
 #
+
 foreach( BACKEND ${KERNEL_BACKENDS} )
   foreach( TESTTYPE ${TESTTYPES} )
     foreach( DIM ${DIMTYPES} )

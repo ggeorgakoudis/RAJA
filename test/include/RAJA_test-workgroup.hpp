@@ -1,5 +1,5 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -19,6 +19,22 @@
 #include <unordered_map>
 
 namespace detail {
+
+struct indirect_function_call_dispatch_typer {
+  template < typename ... >
+  using type = ::RAJA::indirect_function_call_dispatch;
+};
+
+struct indirect_virtual_function_dispatch_typer {
+  template < typename ... >
+  using type = ::RAJA::indirect_virtual_function_dispatch;
+};
+
+struct direct_dispatch_typer {
+  template < typename ... Ts >
+  using type = ::RAJA::direct_dispatch<Ts...>;
+};
+
 
 template < typename Resource >
 struct ResourceAllocator
@@ -391,12 +407,18 @@ using HipOrderPolicyList   =
     camp::list<
                 RAJA::ordered,
                 RAJA::reverse_ordered
-#if defined(RAJA_ENABLE_HIP_INDIRECT_FUNCTION_CALL)
               , RAJA::unordered_hip_loop_y_block_iter_x_threadblock_average
-#endif
               >;
 using HipStoragePolicyList = SequentialStoragePolicyList;
 #endif
+
+
+//
+// Dispatch policy type lists, broken up for compile time reasons
+//
+using IndirectFunctionDispatchTyperList = camp::list<detail::indirect_function_call_dispatch_typer>;
+using IndirectVirtualDispatchTyperList = camp::list<detail::indirect_virtual_function_dispatch_typer>;
+using DirectDispatchTyperList = camp::list<detail::direct_dispatch_typer>;
 
 
 //

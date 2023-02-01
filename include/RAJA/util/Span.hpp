@@ -9,7 +9,7 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -162,6 +162,16 @@ RAJA_HOST_DEVICE RAJA_INLINE Span<IterType, IndexType> make_span(
     IndexType size)
 {
   return Span<IterType, IndexType>(begin, size);
+}
+
+template <typename Iter>
+RAJA_INLINE auto make_span(Iter &iterable)
+{
+  using std::begin;
+  using std::end;
+  using std::distance;
+  return Span<typename Iter::iterator, decltype(distance(begin(iterable), end(iterable)))>
+    (begin(iterable), end(iterable));
 }
 
 }  // end namespace RAJA

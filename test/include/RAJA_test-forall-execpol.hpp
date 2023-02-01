@@ -1,5 +1,5 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -81,8 +81,8 @@ using OpenMPForallAtomicExecPols =
 #if defined(RAJA_TEST_EXHAUSTIVE)
               , RAJA::omp_parallel_for_static_exec< >
               , RAJA::omp_parallel_for_static_exec<4>
-              , RAJA::omp_parallel_for_nowait_static_exec< >
-              , RAJA::omp_parallel_for_nowait_static_exec<4>
+              , RAJA::omp_parallel_exec<RAJA::omp_for_nowait_static_exec< >>
+              , RAJA::omp_parallel_exec<RAJA::omp_for_nowait_static_exec<4>>
 
               , RAJA::omp_parallel_for_dynamic_exec< >
               , RAJA::omp_parallel_for_dynamic_exec<2>
@@ -139,6 +139,16 @@ using HipForallExecPols = camp::list< RAJA::hip_exec<128>,
 using HipForallReduceExecPols = HipForallExecPols;
 
 using HipForallAtomicExecPols = HipForallExecPols;
+
+#endif
+
+#if defined(RAJA_ENABLE_SYCL)
+using SyclForallExecPols = camp::list< RAJA::sycl_exec<128, false>,
+                                       RAJA::sycl_exec<256, false> >;
+
+using SyclForallReduceExecPols = SyclForallExecPols;
+
+using SyclForallAtomicExecPols = SyclForallExecPols;
 
 #endif
 

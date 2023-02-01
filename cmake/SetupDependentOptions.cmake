@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+# Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 # and other RAJA project contributors. See the RAJA/LICENSE file for details.
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
@@ -9,6 +9,18 @@
 ## Here are the CMake dependent options in RAJA.
 ##
 
+set(RAJA_DEPENDENT_OPTIONS ENABLE_OPENMP ENABLE_CUDA ENABLE_HIP ENABLE_CLANG_CUDA ENABLE_COVERAGE ENABLE_TESTS ENABLE_EXAMPLES ENABLE_BENCHMARKS)
+foreach (option ${RAJA_DEPENDENT_OPTIONS})
+   if (${RAJA_${option}})
+      if (NOT ${option})
+         if (RAJA_ALLOW_INCONSISTENT_OPTIONS)
+            message(WARNING "RAJA_${option} set to On, but ${option} is Off. Please set ${option} to On to enable this feature.")
+         else ()
+            message(FATAL_ERROR "RAJA_${option} set to On, but ${option} is Off. Please set ${option} to On enable this feature.")
+         endif ()
+      endif ()
+   endif ()
+endforeach ()
 
 cmake_dependent_option(RAJA_ENABLE_OPENMP "Build with OpenMP support" On "ENABLE_OPENMP" Off)
 cmake_dependent_option(RAJA_ENABLE_CUDA "Build with CUDA support" On "ENABLE_CUDA" Off)

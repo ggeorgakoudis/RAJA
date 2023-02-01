@@ -1,5 +1,5 @@
 [comment]: # (#################################################################)
-[comment]: # (Copyright 2016-22, Lawrence Livermore National Security, LLC)
+[comment]: # (Copyright 2016-23, Lawrence Livermore National Security, LLC)
 [comment]: # (and RAJA project contributors. See the RAJA/LICENSE file)
 [comment]: # (for details.)
 [comment]: # 
@@ -8,6 +8,293 @@
 
 Version vxx.yy.zz -- Release date 20yy-mm-dd
 ============================================
+
+This release contains ...
+
+Notable changes include:
+
+  * New features / API changes:
+
+  * Build changes/improvements:
+
+  * Bug fixes/improvements:
+
+Version 2022.10.4 -- Release date 2022-12-14
+============================================
+
+This release fixes an issue that was found after the v2022.10.3 release.
+
+  * Fixes device alignment bug in workgroups which led to missing symbol errors
+    with the AMD clang compiler.
+
+Version 2022.10.3 -- Release date 2022-12-01
+============================================
+
+This release fixes a few issues that were found after the v2022.10.2 release.
+
+Notable changes include:
+
+  * Update camp submodule to v2022.10.1
+  * Update BLT submodule to commit 8c229991 (includes fixes for crayftn + hip)
+
+  * Properly export 'roctx' target when CMake variable RAJA_ENABLE_ROCTX is on. 
+  * Fix CMake logic for exporting desul targets when desul atomics are enabled.
+  * Fix the way we use CMake to find the rocPRIM module to follow CMake
+    best practices.
+  * Add missing template parameter pack argument in RAJA::statement::For
+    execution policy construct used in RAJA::kernel implementation for OpenMP 
+    target back-end.
+  * Change to use compile-time GPU thread block size in RAJA::forall 
+    implementation. This improves performance of GPU kernels, especially 
+    those using the RAJA HIP back-end.
+  * Added RAJA plugin support, including CHAI support, for RAJA::launch.
+  * Replaced 'DEVICE' macro with alias to 'device_mem_pool_t' to prevent name 
+    conflicts with other libraries.
+  * Updated User Guide documentation about CMake variable used to pass 
+    compiler flags for OpenMP target back-end. This changed with CMake
+    minimum required version bump in v2022.10.0.
+  * Adjust ordering of BLT and camp target inclusion in RAJA CMake usage to 
+    fix an issue with projects using external camp vs. RAJA submodule.
+    
+
+
+Version 2022.10.2 -- Release date 2022-11-08
+============================================
+
+This release fixes a few issues that were found after the v2022.10.1 patch
+release and updates a few things. Sorry for the churn, folks.
+
+Notable changes include:
+
+  * Update desul submodule to commit e4b65e00.
+
+  * CUDA compute architecture must now be set using the 
+    'CMAKE_CUDA_ARCHITECTURES' CMake variable. For example, by passing
+    '-DCMAKE_CUDA_ARCHITECTURES=70' to CMake for 'sm_70' architecture. 
+    Using '-DCUDA_ARCH=sm_*' will not no longer do the right thing. Please
+    see the RAJA User Guide for more information.
+  * A linking bug was fixed related to the usage of the new RAJA::KernelName
+    capability.
+  * A compilation bug was fixed in the new reduction interface support for 
+    OpenMP target offload.  
+  * An issue was fixed in AVX compiler checking logic for RAJA vectorization
+    intrinsics capabilities.
+
+
+Version 2022.10.1 -- Release date 2022-10-31
+============================================
+
+This release updates the RAJA release number in CMake, which was inadvertently
+missed in the v2022.10.0 release.
+
+
+Version 2022.10.0 -- Release date 2022-10-28
+============================================
+
+This release contains new features, bug fixes, and build improvements. Please
+see the RAJA user guide for more information about items in this release.
+
+Notable changes include:
+
+  * New features / API changes:
+     * Introduced a new RAJA::forall and reduction interface that extend
+       the execution behavior of reduction operations with RAJA::forall.
+       The main difference with the pre-existing reduction interface in RAJA
+       is that reduction variables and operations are passed into the 
+       RAJA::forall method and lambda expression instead of using the lambda
+       capture mechanism for reduction objects. This offers flexibility and
+       potential performance advantages when using RAJA reductions as the
+       new interface enables the ability to integrate with programming model 
+       back-end reduction machinery directly, for OpenMP and SYCL for example.
+       The interface also enables user-chosen kernel names to be passed to
+       RAJA::forall for performance analysis annotations that are easier to
+       understand. Example codes are included as well as a description of
+       the new interface and comparison with the pre-existing interface in
+       the RAJA User Guide.
+     * Added support for run time execution policy selection for RAJA::forall
+       kernels. Users can specify any number of execution policies in their
+       code and then select which to use at run time. There is no discussion 
+       of this in the RAJA User Guide yet. However, there are a couple of 
+       example codes in files RAJA/examples/*dynamic-forall*.cpp.
+     * The RAJA::launch framework has been moved out of the experimental 
+       namespace, into the RAJA:: namespace, which introduces an API change.
+     * Add support for all RAJA segment types in the RAJA::launch framework.
+     * Add SYCL back-end support for RAJA::launch and dynamic shared memory
+       for all back-ends in RAJA::launch. These changes introduce API changes.
+     * Add additional policies to WorkGroup construct that allow for different
+       methods of dispatching work.
+     * Add special case implementations to CUDA atomicInc and atomicDec 
+       functions to use special hardware support when available. This can
+       result in a significant performance boost.
+     * Rework HIP atomic implementations to support more native data types.
+     * Added RAJA_UNROLL_COUNT macro which enables users to unroll loops for
+       a fix unroll count.
+     * Major User Guide rework:
+         * New RAJA tutorial sections, including new exercise source files
+           to work through. Material used in recent RADIUSS/AWS RAJA Tutorial.
+         * Cleaned up and expanded RAJA feature sections to be more like a
+           reference guide with links to associated tutorial sections for
+           implementation examples.
+         * Improved presentation of build configuration sections.
+
+  * Build changes / improvements:
+     * Submodule updates:
+         * BLT updated to v0.5.2 release.
+         * Camp updated to v2022.10.0 release.
+     * The minimum CMake version required has changed. For a HIP build,
+       CMake 3.23 or newer is required. For all other builds CMake 3.20
+       or newer is required.
+     * OpenMP back-end support is now off by default to match behavior of
+       all other RAJA parallel back-end support. To enable OpenMP, users
+       must now run CMake with the -DENABLE_OPENMP=On option.
+     * Support OpenMP back-end enablement in a HIP build configuration.
+     * RAJA_ENABLE_VECTORIZATION CMake option added to enable/disable
+       new SIMD/SIMT vectorization support. The default is 'On'. The option
+       allows users to disable if they wish.
+     * Improvements to build target export mechanics coordinated with camp,
+       BLT, and Spack projects.
+     * Improve HIP builds to better support evolving ROCm software stack.
+     * Add CMake variable RAJA_ALLOW_INCONSISTENT_OPTIONS and CMake messages
+       to allow users more control when using CMake dependent options. When
+       CMake is run, the code now checks for cases when RAJA_ENABLE_X=On and
+       but ENABLE_X=Off. Previously, this was confusing because X would not
+       be enabled despite the value of the RAJA-specific option.
+     * Build system refactoring to make CMake configurations more robust; added
+       test to check for installed CMake config. 
+     * Added basic support to compile with C++20 standard.
+     * Add missing compilation macro guards for HIP and CUDA policies in
+       vectorization support when not running on a GPU device.
+     * Various compiler warnings squashed. 
+
+  * Bug fixes / improvements:
+     * Expanded test coverage to catch more cases that users have run into.
+     * Various fixes in SIMD/SIMT support for different compilers and versions
+       users have hit recently. Also, changes to internal implementations to
+       improve run time performance for those features.
+
+
+Version 2022.03.1 -- Release date 2022-08-10
+============================================
+
+This release contains a bug fix.
+
+Notable changes include:
+
+  * Fix for guarding GPU vectorization when not running on the device.
+
+
+Version 2022.03.0 -- Release date 2022-03-15
+============================================
+
+This release contains new features, bug fixes, and build improvements. Please
+see the RAJA user guide for more information about items in this release.
+
+Notable changes include:
+
+  * Important note: As of this release, the coordinated release of RAJA 
+                    Portability Suite components (RAJA, Umpire, CHAI) will be 
+                    tagged as YYYY.MM.pp for year, month, and patch number. For
+                    example, This release is tagged as 2022.03.0 meaning March 
+                    2022 release. The intent is to indicate that all components 
+                    with a common year-month release tag are compatible and to
+                    make the association amongst them clear for users. If an 
+                    individual component requires a patch release independent 
+                    of the others, the release for that component will be 
+                    labeled 2022.03.1, for example, to indicate that it is one 
+                    patch release beyond the original combined Suite release.
+
+  * New features / API changes:
+      * BREAKING CHANGE: RAJA OffsetLayout constructor was changed to take
+        (begin, end) args (where end is one past the last index) instead of
+        (first, last) args (where last index was included). This is consistent 
+        with expected behavior and other RAJA Layout/View concepts.
+      * New experimental features that support SIMD/SIMT programming by 
+        guaranteeing vectorization without the need to rely on compiler
+        auto-vectorization. Basic documentation for this is included in the
+        RAJA User Guide and should provide enough description for interested
+        users to try it out. 
+      * "Flatten" policies were added for RAJA Teams. This reshapes
+        multi-dimensional GPU thread blocks to 1D.
+      * RAJA Teams now allows a single execution policy to be provided. 
+        Previously, it required two; e.g., a CPU policy and a GPU policy.
+      * ROCTX support has been added to enable kernel naming with RAJA Teams.
+      * Details of CUDA and HIP errors are now added to the reported exception
+        string. Previously, this information was going to stderr.
+      * All CUDA execution policies have been expanded to allow users to specify
+        a minimum number of blocks per SM, if they wish to do that. An analogous
+        capability for HIP execution policies is being hashed out. 
+      * Changes were made to RAJA scans to address a consistency issue and
+        allow const pointers to be passed as the input span.
+      * RAJA View pointer type is fixed to properly allow CHAI ManagedArray 
+        type to be passed through to View instead of the raw pointer type. This
+        fixes an issue where some required CHAI memory transfers were not 
+        occurring.
+      * A "combining adapter" concept has been added that allows 
+        multi-dimensional loops to be run using one-dimensional interfaces.
+        Please see the RAJA User Guide for more description.
+      * Additional feature support and improvements have been made to the 
+        RAJA SYCL back-end (please see the RAJA User Guide for more 
+        information):
+         * "nontrivially copyable" SYCL interface has been removed 
+           (i.e., 'RAJA::sycl_exec_nontrivial<...>' and 
+           'RAJA::SyclKernelNonTrivial<...>') as these constructs are no longer
+           needed when using recent updates to the Intel OneAPI compiler.
+           Execution is now dispatched based on the C++ 'is_trivially_copyable'
+           type trait.
+         * Support for RAJA::kernel loop tiling policies is now available for
+           SYCL execution.
+         * The naming scheme for SYCL 'group' and 'local' policies has been
+           changed from 1-based to 0-based for block dimensions.
+         * The use of the SYCL atomic OneAPI extension namespace has been 
+           cleaned up.
+
+  * Build changes/improvements:
+      * AS OF THIS RELEASE, RAJA REQUIRES A C++14-COMPLIANT COMPILER TO BUILD!! 
+      * AS OF THIS RELEASE, RAJA REQUIRES CMAKE version 3.14.5 or newer.
+      * The BLT submodule is updated to v0.5.0, which includes improved
+        support for ROCm/HIP builds. Although the option CMAKE_HIP_ARCHITECTURES
+        to specify the HIP target architecture is not available until CMake 
+        version 3.21, the option is supported in the new BLT version and works 
+        with all versions of CMake.
+      * The camp submodule is updated to v2022.03.0. If you do not use the 
+        RAJA submodule and build RAJA with an external version of camp, you 
+        will need to use camp v2022.03.0 or newer.
+      * The "RAJA_" prefix has been added to all CMake options. Options that 
+        shadow a CMake or BLT option are turned into cmake_dependent_option 
+        calls, ensuring that they can be controlled independently and have the 
+        correct dependence on the underlying CMake or BLT support;
+        e.g., RAJA_ENABLE_CUDA requires ENABLE_CUDA.
+      * The camp_DIR export has been removed. Camp paths will be searched 
+        using the default logic which is consistent with camp.
+      * The raja-config.cmake package file is now "relocatable", meaning it
+        can be moved to another directory location after an install and still
+        work. This should make it easier to use for applications that use 
+        RAJA and CMake, but do not use BLT.
+      * CMake logic for using CUB in RAJA for a CUDA build has been changed.
+        The default behavior is now that when the CUDA version is < 11, the
+        RAJA CUB submodule will be used. When the CUDA version is >= 11, the
+        CUB version that is included in the associated CUDA toolkit will be 
+        used. Users have the ability to override these defaults and select
+        a specific version of CUB if they wish.
+      * CMake logic for using rocPRIM in RAJA for a HIP build is similar.
+        The default behavior is now that when the HIP version is < 4, the
+        RAJA rocPRIM submodule will be used. When the HIP version is >= 4, the
+        rocPRIM version that is included in the associated ROCm toolkit will 
+        be used. Users have the ability to override these defaults and select
+        a specific version of rocPRIM if they wish.
+      * The RAJA Spack package was updated to include the version of this 
+        release and address some issues.
+      * Added a concept of RAJA_HIP_ACTIVE that mirrors RAJA_CUDA_ACTIVE.
+      * The CMake option RAJA_ENABLE_HIP_INDIRECT_FUNCTION_CALL has been 
+        removed. Now the choice is made based on the rocm compiler version.
+
+  * Bug fixes/improvements:
+      * A bug in TBB non-inplace scan implementation was fixed.
+      * RAJA StaticLayout was fixed to avoid compiler warnings due to
+        converting a negative integer value to an unsigned integral type.
+      * Various improvements, updates, and fixes (formatting, typos, etc.) 
+        in RAJA User Guide.
+
 
 Version v0.14.1 -- Release date 2021-11-15
 ============================================
@@ -62,12 +349,12 @@ Notable changes include:
         Finally, additional policy type aliases have been added to make common 
         use cases less verbose. Please see the RAJA policy documentation in 
         the User Guide for policy descriptions. 
-      * Host implementation of Hip atomics added.
-      * Add ability to specify atomic to use on the host in CUDA and Hip
+      * Host implementation of HIP atomics added.
+      * Add ability to specify atomic to use on the host in CUDA and HIP
         atomic policies (i.e., added host atomic template parameter), This
         is useful for host-device decorated lambda expressions that may be
         used for either host or device execution. It also fixes compilation 
-        issues with Hip atomic compilation in host-device contexts.
+        issues with HIP atomic compilation in host-device contexts.
       * The RAJA Registry API has been changed to return raw pointers to
         registry objects rather than shared_ptr type. This is better for
         performance.
@@ -107,7 +394,7 @@ Notable changes include:
       * The build default has been changed to use the version of CUB that
         is installed in the specified version of the CUDA toolkit, if available,
         when CUDA is enabled. Similarly, for the analogous functionality in
-        Hip. Specific versions of these libraries can still be specified for
+        HIP. Specific versions of these libraries can still be specified for
         a RAJA build. Please see the RAJA User Guide for details. 
       * The build system now uses the BLT cmake_dependent_options support for
         options defined by BLT. This avoids shadowing of BLT options by options
@@ -115,24 +402,24 @@ Notable changes include:
         another BLT project. For example, it provides the ability to disable 
         RAJA tests and examples at a more fine granularity.
       * Checks were added to the RAJA CMake build system to check for minimum
-        required versions of CUDA (9.2) and Hip (3.5).
+        required versions of CUDA (9.2) and HIP (3.5).
       * A build system bug was fixed so that targets for third-party 
-        dependencies provided by BLT (e.g., CUDA and Hip) are exported properly.
+        dependencies provided by BLT (e.g., CUDA and HIP) are exported properly.
         This allows non-BLT projects to use the imported RAJA target.
       * An issue was fixed to appease the MSVC 2019 compiler.
-      * Improvements to build system to address Hip linking issues.
+      * Improvements to build system to address HIP linking issues.
 
   * Bug fixes/improvements:
-      * Hip and CUDA block reductions were tweaked to fix the number of steps
+      * HIP and CUDA block reductions were tweaked to fix the number of steps
         in the final wavefront/warp reduction. This saves a couple rounds of
         warp shfls.
       * A runtime bug resulting from defaulted View constructors not being 
         implemented correctly in CUDA 10.1 is fixed. This fixes an issue
         with CHAI managed arrays not having their copy constructor being 
         triggered properly.
-      * Fix bug that caused a CUDA or Hip synchronization error when a zero
+      * Fix bug that caused a CUDA or HIP synchronization error when a zero
         length loop was enqueued in a workgroup.
-      * Added missing Hip workgroup unordered execution policy, so Hip 
+      * Added missing HIP workgroup unordered execution policy, so HIP 
         version is consistent with CUDA version.
       * Fixed issue where the RAJA non-resource API returns an EventProxy object
         with a dangling resource pointer, by getting a reference to the 
@@ -140,7 +427,7 @@ Notable changes include:
       * IndexSet utility methods for collecting indices into a separate 
         container now work with any index type. 
       * The volatile qualifier was removed from a type conversion function used
-        in RAJA atomics. This fixes a performance issue with Hip where the 
+        in RAJA atomics. This fixes a performance issue with HIP where the 
         value was written to stack memory during type conversion.
       * Numerous improvements, updates, and fixes (formatting, typos, etc.) 
         in RAJA User Guide.
@@ -155,7 +442,7 @@ see the RAJA user guide for more information about items in this release.
 Notable changes include:
 
   * New features:
-      * Execution policies for the RAJA Hip back-end and examples have been
+      * Execution policies for the RAJA HIP back-end and examples have been
         added to the RAJA User Guide and Tutorial.
       * Strongly-typed indices now work with Multiview.
 
@@ -201,7 +488,7 @@ Notable changes include:
         things like Kokkos Performance Profiline Tools to be used with RAJA
         (https://github.com/kokkos/kokkos-tools)
       * Added ability to pass a resource object to RAJA::forall methods to
-        enable asynchronous execution for CUDA and Hip back-ends.
+        enable asynchronous execution for CUDA and HIP back-ends.
       * Added "Multi-view" that works like a regular view, except that it
         can wrap multiple arrays so their accesses can share index arithmetic.
       * Multiple sort algorithms added. This provides portable parallel sort 
@@ -238,7 +525,7 @@ Notable changes include:
         Resource object. This enables run time specification of the memory
         space where the data for list segment indices will live. In earlier
         RAJA versions, the space in which list segment index data lived was a 
-        compile-time choice based on whether CUDA or Hip was enabled and the 
+        compile-time choice based on whether CUDA or HIP was enabled and the 
         data resided in unified memory for either case. This is still supported
         in this release, but is marked as a DEPRECATED FEATURE. In the next RAJA
         release, ListSegment construction will require a camp Resource object.
@@ -251,7 +538,7 @@ Notable changes include:
   * Build changes/improvements:
       * The BLT, camp, CUB, and rocPRIM submodules have all been updated to 
         more recent versions. Please note that RAJA now requires rocm version 
-        3.5 or newer to use the Hip back-end.
+        3.5 or newer to use the HIP back-end.
       * Build for clang9 on macosx has been fixed.
       * Build for Intel19 on Windows has been fixed.
       * Host/device annotations have been added to reduction operations to
@@ -272,7 +559,7 @@ Notable changes include:
   * Bug fixes:
       * An issue with SIMD privatization with the Intel compiler, required
         to generate correct code, has been fixed.
-      * An issue with the atomicExchange() operation for the RAJA Hip back-end
+      * An issue with the atomicExchange() operation for the RAJA HIP back-end
         has been fixed.
       * A type issue in the RAJA::kernel implementation involving RAJA span
         usage has been fixed.
@@ -294,7 +581,7 @@ This release contains new features, several notable changes, and some bug fixes.
 Notable changes include:
 
   * New features:
-      * Hip compiler back-end added to support AMD GPUs. Usage is essentially
+      * HIP compiler back-end added to support AMD GPUs. Usage is essentially
         the same as for CUDA. Note that this feature is considered a
         work-in-progress and not yet production ready. It is undocumented,
         but noted here, for friendly users who would like to try it out. 

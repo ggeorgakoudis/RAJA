@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+# Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 # and RAJA project contributors. See the RAJA/LICENSE file for details.
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
@@ -23,6 +23,10 @@ if(RAJA_ENABLE_HIP)
   list(APPEND FORALL_BACKENDS Hip)
 endif()
 
+if(RAJA_ENABLE_SYCL)
+  list(APPEND FORALL_BACKENDS Sycl)
+endif()
+
 if(RAJA_ENABLE_TARGET_OPENMP)
   list(APPEND FORALL_BACKENDS OpenMPTarget)
 endif()
@@ -40,11 +44,13 @@ add_subdirectory(reduce-multiple-indexset)
 add_subdirectory(resource-indexset)
 add_subdirectory(resource-segment)
 
-unset( FORALL_BACKENDS ) 
+add_subdirectory(CombiningAdapter)
+
+unset( FORALL_BACKENDS )
 
 
 #
-# Note: Forall atomic tests use their own backend list since atomic 
+# Note: Forall atomic tests use their own backend list since atomic
 #       constructs are defined for only some of the RAJA back-ends.
 list(APPEND FORALL_FAIL_ATOMIC_BACKENDS Sequential)
 list(APPEND FORALL_ATOMIC_BACKENDS Sequential)
@@ -67,6 +73,10 @@ if(RAJA_ENABLE_HIP)
   list(APPEND FORALL_ATOMIC_BACKENDS Hip)
 endif()
 
+if(RAJA_ENABLE_SYCL)
+  list(APPEND FORALL_ATOMIC_BACKENDS Sycl)
+endif()
+
 if(RAJA_ENABLE_TARGET_OPENMP)
   list(APPEND FORALL_ATOMIC_BACKENDS OpenMPTarget)
 endif()
@@ -80,7 +90,7 @@ unset( FORALL_FAIL_ATOMIC_BACKENDS )
 
 #
 # Note: Forall region tests define their backend list in the region
-#       test directory since region constructs are defined for only 
+#       test directory since region constructs are defined for only
 #       some of the RAJA back-ends.
 #
 add_subdirectory(region)

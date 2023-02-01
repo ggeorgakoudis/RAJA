@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+# Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 # and other RAJA project contributors. See the RAJA/LICENSE file for details.
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
@@ -72,21 +72,21 @@ endif ()
 
 if (RAJA_ENABLE_HIP)
   if (RAJA_ENABLE_EXTERNAL_ROCPRIM STREQUAL "VersionDependent")
-    if (HIP_VERSION_STRING VERSION_GREATER_EQUAL "4.0")
+    if (hip_VERSION VERSION_GREATER_EQUAL "4.0")
       set(RAJA_ENABLE_EXTERNAL_ROCPRIM ON)
-      message(STATUS "Setting RAJA_ENABLE_EXTERNAL_ROCPRIM ON with HIP_VERSION ${HIP_VERSION_STRING} >= 4.")
+      message(STATUS "Setting RAJA_ENABLE_EXTERNAL_ROCPRIM ON with hip_VERSION ${hip_VERSION} >= 4.")
     else()
       set(RAJA_ENABLE_EXTERNAL_ROCPRIM OFF)
-      message(STATUS "Setting RAJA_ENABLE_EXTERNAL_ROCPRIM OFF with HIP_VERSION ${HIP_VERSION_STRING} < 4.")
+      message(STATUS "Setting RAJA_ENABLE_EXTERNAL_ROCPRIM OFF with hip_VERSION ${hip_VERSION} < 4.")
     endif()
   endif()
 
   if (RAJA_ENABLE_EXTERNAL_ROCPRIM)
-    find_package(RocPRIM)
-    if (ROCPRIM_FOUND)
+    find_package(rocPRIM)
+    if (rocPRIM_FOUND)
       blt_import_library(
         NAME rocPRIM
-        INCLUDES ${ROCPRIM_INCLUDE_DIRS}
+        INCLUDES ${rocPRIM_INCLUDE_DIRS}
         TREAT_INCLUDES_AS_SYSTEM ON
         EXPORTABLE ON)
     else()
@@ -101,25 +101,42 @@ if (RAJA_ENABLE_HIP AND RAJA_ENABLE_ROCTX)
   include(FindRoctracer)
   blt_import_library(NAME roctx
                      INCLUDES ${ROCTX_INCLUDE_DIRS}
-                     LIBRARIES ${ROCTX_LIBRARIES})
+                     LIBRARIES ${ROCTX_LIBRARIES}
+                     EXPORTABLE ON
+                     TREAT_INCLUDES_AS_SYSTEM ON)
 endif ()
 
 set(TPL_DEPS)
-blt_list_append(TO TPL_DEPS ELEMENTS cuda cuda_runtime IF RAJA_ENABLE_CUDA)
 blt_list_append(TO TPL_DEPS ELEMENTS nvtoolsext IF RAJA_ENABLE_NV_TOOLS_EXT)
 blt_list_append(TO TPL_DEPS ELEMENTS cub IF RAJA_ENABLE_EXTERNAL_CUB)
-blt_list_append(TO TPL_DEPS ELEMENTS hip hip_runtime IF RAJA_ENABLE_HIP)
 blt_list_append(TO TPL_DEPS ELEMENTS rocPRIM IF RAJA_ENABLE_EXTERNAL_ROCPRIM)
-blt_list_append(TO TPL_DEPS ELEMENTS openmp IF RAJA_ENABLE_OPENMP)
-blt_list_append(TO TPL_DEPS ELEMENTS mpi IF RAJA_ENABLE_MPI)
+blt_list_append(TO TPL_DEPS ELEMENTS roctx IF RAJA_ENABLE_ROCTX)
+
+set(RAJA_NEEDS_BLT_TPLS False)
+if (RAJA_ENABLE_CUDA OR RAJA_ENABLE_HIP OR RAJA_ENABLE_OPENMP OR RAJA_ENABLE_MPI)
+  set(RAJA_NEEDS_BLT_TPLS True)
+endif ()
+
+if (RAJA_NEEDS_BLT_TPLS)
+  if (NOT BLT_EXPORTED)
+    set(BLT_EXPORTED On CACHE BOOL "" FORCE)
+  blt_import_library(NAME          blt_stub EXPORTABLE On)
+  set_target_properties(blt_stub PROPERTIES EXPORT_NAME blt::blt_stub)
+            install(TARGETS blt_stub
+                    EXPORT               bltTargets)
+    blt_export_tpl_targets(EXPORT bltTargets NAMESPACE blt)
+    install(EXPORT bltTargets
+      DESTINATION  lib/cmake/raja)
+  endif()
+endif ()
 
 foreach(dep ${TPL_DEPS})
     # If the target is EXPORTABLE, add it to the export set
     get_target_property(_is_imported ${dep} IMPORTED)
     if(NOT ${_is_imported})
         install(TARGETS              ${dep}
-                EXPORT               RAJA
-                DESTINATION          lib)
+                EXPORT               RAJATargets
+                DESTINATION          lib/cmake/raja)
         # Namespace target to avoid conflicts
         set_target_properties(${dep} PROPERTIES EXPORT_NAME RAJA::${dep})
     endif()

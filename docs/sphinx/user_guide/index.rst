@@ -1,5 +1,5 @@
 .. ##
-.. ## Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+.. ## Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 .. ## and RAJA project contributors. See the RAJA/LICENSE file
 .. ## for details.
 .. ##
@@ -26,11 +26,11 @@ Additional information about things to think about when considering whether
 to use RAJA in an application can be found in :ref:`app-considerations-label`.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    getting_started
+   using_raja
+   config_options
    features
    app_considerations
    tutorial
-   using_raja
-   config_options

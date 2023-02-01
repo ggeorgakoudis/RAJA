@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+# Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 # and RAJA project contributors. See the RAJA/LICENSE file for details.
 #
 # SPDX-License-Identifier: (BSD-3-Clause)
@@ -17,7 +17,7 @@ Help()
    echo "This script will make a branch in a local git repo for a PR from a "
    echo "branch in a forked repo. The script must be run inside the local repo."
    echo 
-   echo "Syntax: make_local_branch_from_fork_pr [-h | -c num | num]"
+   echo "Syntax: make_local_branch_from_fork_pr [-h | -c num | -b num]"
    echo "options:"
    echo "-h       Print this help usage message."
    echo "-c <#>   Check whether there is a PR with given number."

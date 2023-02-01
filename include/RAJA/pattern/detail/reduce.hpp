@@ -9,7 +9,7 @@
  */
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-// Copyright (c) 2016-22, Lawrence Livermore National Security, LLC
+// Copyright (c) 2016-23, Lawrence Livermore National Security, LLC
 // and RAJA project contributors. See the RAJA/LICENSE file for details.
 //
 // SPDX-License-Identifier: (BSD-3-Clause)
@@ -205,6 +205,7 @@ public:
   RAJA_HOST_DEVICE
   void reset(T val, T identity_ = Reduce::identity())
   {
+    operator T(); // automatic get() before reset
     c.reset(val, identity_);
   }
 
@@ -354,9 +355,18 @@ public:
   constexpr BaseReduceMinLoc() : Base(value_type(T(), IndexType())) {}
 
   constexpr BaseReduceMinLoc(T init_val, IndexType init_idx,
-                             T identity_ = reduce_type::identity())
-    : Base(value_type(init_val, init_idx), identity_)
+                             T identity_val_ = reduce_type::identity(),
+                             IndexType identity_loc_ = DefaultLoc<IndexType>().value())
+    : Base(value_type(init_val, init_idx), value_type(identity_val_, identity_loc_))
   {
+  }
+
+  void reset(T init_val, IndexType init_idx = DefaultLoc<IndexType>().value(),
+             T identity_val_ = reduce_type::identity(),
+             IndexType identity_loc_ = DefaultLoc<IndexType>().value())
+  {
+    operator T(); // automatic get() before reset
+    Base::reset(value_type(init_val, init_idx), value_type(identity_val_, identity_loc_));
   }
 
   /// \brief reducer function; updates the current instance's state
@@ -365,12 +375,6 @@ public:
   {
     this->combine(value_type(rhs, loc));
     return *this;
-  }
-
-  void reset(T init_val, IndexType init_idx=DefaultLoc<IndexType>().value(),
-             T identity_ = reduce_type::identity())
-  {
-    Base::reset(value_type(init_val, init_idx), identity_);
   }
 
   //! Get the calculated reduced value
@@ -496,9 +500,18 @@ public:
   constexpr BaseReduceMaxLoc() : Base(value_type(T(), IndexType())) {}
 
   constexpr BaseReduceMaxLoc(T init_val, IndexType init_idx,
-                             T identity_ = reduce_type::identity())
-    : Base(value_type(init_val, init_idx), identity_)
+                             T identity_val_ = reduce_type::identity(),
+                             IndexType identity_loc_ = DefaultLoc<IndexType>().value())
+    : Base(value_type(init_val, init_idx), value_type(identity_val_, identity_loc_))
   {
+  }
+
+  void reset(T init_val, IndexType init_idx = DefaultLoc<IndexType>().value(),
+             T identity_val_ = reduce_type::identity(),
+             IndexType identity_loc_ = DefaultLoc<IndexType>().value())
+  {
+    operator T(); // automatic get() before reset
+    Base::reset(value_type(init_val, init_idx), value_type(identity_val_, identity_loc_));
   }
 
   //! reducer function; updates the current instance's state
@@ -507,12 +520,6 @@ public:
   {
     this->combine(value_type(rhs, loc));
     return *this;
-  }
-
-  void reset(T init_val, IndexType init_idx=DefaultLoc<IndexType>().value(),
-             T identity_ = reduce_type::identity())
-  {
-    Base::reset(value_type(init_val, init_idx), identity_);
   }
 
   //! Get the calculated reduced value
