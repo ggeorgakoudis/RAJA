@@ -19,7 +19,7 @@ namespace apollo_multi
 
 template<typename KernelPolicy>
 struct PreLaunchKernel {
-  static void exec(Apollo::Region *region, Apollo::RegionContext *context)
+  static void exec(Apollo::Region *, Apollo::RegionContext *)
   {
     //std::cout << "PreLaunch *NOT* CudaKernelAsync\n";
   }
@@ -102,11 +102,11 @@ struct KernelPolicyGeneratorSingle<num_policies,
                              KernelPolicyList,
                              SegmentTuple,
                              Bodies...> {
-  static RAJA_INLINE void generate(int policy,
-                                   Apollo::Region *region,
-                                   Apollo::RegionContext *context,
-                                   SegmentTuple &&segments,
-                                   Bodies &&... bodies)
+  static RAJA_INLINE void generate(int,
+                                   Apollo::Region *,
+                                   Apollo::RegionContext *,
+                                   SegmentTuple &&,
+                                   Bodies &&...)
   {
   }
 };
@@ -145,7 +145,7 @@ struct FeatureGeneratorSingle {
 
 template <camp::idx_t num_tuples, typename SegmentTuple>
 struct FeatureGeneratorSingle<num_tuples, num_tuples, SegmentTuple> {
-  static void generate(SegmentTuple segments, std::vector<float> &features) {
+  static void generate(SegmentTuple, std::vector<float> &) {
     return;
   }
 };
@@ -160,7 +160,7 @@ struct FeatureGenerator {
 /* END OF TEST STUFF */
 
 template <typename KernelPolicyList, typename SegmentTuple, typename... Bodies>
-RAJA_INLINE void kernel_impl(ApolloKernelMultiPolicy<KernelPolicyList> &&p,
+RAJA_INLINE void kernel_impl(ApolloKernelMultiPolicy<KernelPolicyList> &&,
                              SegmentTuple &&segments,
                              Bodies &&...bodies)
 {

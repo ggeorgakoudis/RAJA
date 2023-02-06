@@ -509,7 +509,7 @@ forall_Icount(ExecutionPolicy&& p,
  ******************************************************************************
  */
 
-template <typename ExecutionPolicy, typename Res, typename Container, typename... Params>
+template <typename ExecutionPolicy, typename Res, typename Container, typename LoopBody>
 RAJA_INLINE concepts::enable_if_t<
     resources::EventProxy<Res>,
     concepts::negate<type_traits::is_indexset_policy<ExecutionPolicy>>,
@@ -528,7 +528,8 @@ forall(ExecutionPolicy&& p, Res &r, Container&& c, LoopBody&& loop_body)
 
   return resources::EventProxy<Res>(r);
 }
-template <typename ExecutionPolicy, typename Res, typename Container, typename LoopBody>
+
+template <typename ExecutionPolicy, typename Res, typename Container, typename... Params>
 RAJA_INLINE concepts::enable_if_t<
     resources::EventProxy<Res>,
     concepts::negate<type_traits::is_indexset_policy<ExecutionPolicy>>,
@@ -592,16 +593,15 @@ forall(ExecutionPolicy&& p, Container&& c, LoopBody&& loop_body)
  */
 template <typename ExecutionPolicy, typename... Args,
           typename Res = typename resources::get_resource<ExecutionPolicy>::type >
-RAJA_INLINE concepts::enable_if_t<resources::EventProxy<Res>,
-  concepts::negate<type_traits::is_apollo_multi_policy<ExecutionPolicy>>> forall(Args&&... args)
+RAJA_INLINE resources::EventProxy<Res> forall(Args&&... args)
 {
   Res r = Res::get_default();
   return ::RAJA::policy_by_value_interface::forall(
       ExecutionPolicy(), r, std::forward<Args>(args)...);
 }
 template <typename ExecutionPolicy, typename Res, typename... Args>
-RAJA_INLINE concepts::enable_if_t<resources::EventProxy<Res>, type_traits::is_resource<Res>,
-concepts::negate<type_traits::is_apollo_multi_policy<ExecutionPolicy>>> forall(Res &r, Args&&... args)
+RAJA_INLINE concepts::enable_if_t<resources::EventProxy<Res>, type_traits::is_resource<Res>>
+forall(Res r, Args&&... args)
 {
   return ::RAJA::policy_by_value_interface::forall(
       ExecutionPolicy(), r, std::forward<Args>(args)...);

@@ -216,7 +216,7 @@ inline namespace policy_by_value_interface
 
 template <typename... Stmts, typename SegmentTuple, typename Resource, typename... Bodies>
 RAJA_INLINE resources::EventProxy<Resource>
-kernel(KernelPolicy<Stmts...> &&p, SegmentTuple &&segments, Resource &res, Bodies &&...bodies)
+kernel(KernelPolicy<Stmts...> &&, SegmentTuple &&segments, Resource &res, Bodies &&...bodies)
 {
   return RAJA::kernel_param_resource_impl<typename KernelPolicy<Stmts...>::stmtlist>(
       std::forward<SegmentTuple>(segments),

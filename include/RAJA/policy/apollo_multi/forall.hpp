@@ -37,8 +37,6 @@
 #include <functional>
 #include <unordered_set>
 
-#include <omp.h>
-
 #include "RAJA/util/resource.hpp"
 #include "RAJA/util/types.hpp"
 
@@ -105,13 +103,13 @@ PreLaunch(resources::Hip &hip_res, Apollo::Region *region, Apollo::RegionContext
 #endif
 
 template <typename Pol, typename Res>
-static RAJA_INLINE void PreLaunch(Res &r, Apollo::Region *region, Apollo::RegionContext *context) {
+static RAJA_INLINE void PreLaunch(Res &, Apollo::Region *, Apollo::RegionContext *) {
   //std::cout << "prelaunch default -> noop\n";
   // default noop
 }
 
 template <typename Pol, typename Res>
-static RAJA_INLINE void PostLaunch(Res &r, Apollo::Region *region, Apollo::RegionContext *context) {
+static RAJA_INLINE void PostLaunch(Res &, Apollo::Region *region, Apollo::RegionContext *context) {
   //std::cout << "postlaunch default -> calling region->end(); \n";
   region->end(context);
 }
@@ -156,11 +154,11 @@ struct PolicyGeneratorSingle<num_policies,
                              PolicyList,
                              Iterable,
                              Func> {
-  static RAJA_INLINE void generate(int policy,
-                                   Apollo::Region *region,
-                                   Apollo::RegionContext *context,
-                                   Iterable &&iter,
-                                   Func &&loop_body)
+  static RAJA_INLINE void generate(int,
+                                   Apollo::Region *,
+                                   Apollo::RegionContext *,
+                                   Iterable &&,
+                                   Func &&)
   {
   }
 };
