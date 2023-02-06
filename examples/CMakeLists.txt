@@ -101,4 +101,10 @@ raja_add_executable(
   NAME resource-launch
   SOURCES resource-launch.cpp)
 
+if (ENABLE_APOLLO)
+  raja_add_executable(
+    NAME daxpy_apollo
+    SOURCES daxpy_apollo.cpp)
+endif ()
+
 add_subdirectory(plugin)

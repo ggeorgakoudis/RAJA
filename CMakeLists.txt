@@ -230,6 +230,12 @@ if (RAJA_ENABLE_TBB)
     tbb)
 endif ()
 
+if (ENABLE_APOLLO)
+  set(raja_depends
+  ${raja_depends}
+  apollo)
+endif()
+
 message(STATUS "Desul Atomics support is ${RAJA_ENABLE_DESUL_ATOMICS}")
 if (RAJA_ENABLE_DESUL_ATOMICS)
   add_subdirectory(tpl/desul)
