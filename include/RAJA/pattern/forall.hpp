@@ -607,6 +607,7 @@ forall(Res r, Args&&... args)
       ExecutionPolicy(), r, std::forward<Args>(args)...);
 }
 
+#if 0
 template <typename ExecutionPolicy, typename... Args,
           typename Res = typename resources::get_resource<ExecutionPolicy>::type >
 RAJA_INLINE concepts::enable_if<
@@ -625,6 +626,7 @@ forall(Res& r, Args&&... args)
   policy_by_value_interface::forall(ExecutionPolicy(), r, std::forward<Args>(args)...);
   return;
 }
+#endif
 
 /*!
  * \brief Conversion from template-based policy to value-based policy for
