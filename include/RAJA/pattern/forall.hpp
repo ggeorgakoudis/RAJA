@@ -509,32 +509,11 @@ forall_Icount(ExecutionPolicy&& p,
  ******************************************************************************
  */
 
-template <typename ExecutionPolicy, typename Res, typename Container, typename LoopBody>
-RAJA_INLINE concepts::enable_if_t<
-    resources::EventProxy<Res>,
-    concepts::negate<type_traits::is_indexset_policy<ExecutionPolicy>>,
-    concepts::negate<type_traits::is_multi_policy<ExecutionPolicy>>,
-    type_traits::is_apollo_multi_policy<ExecutionPolicy>,
-    type_traits::is_range<Container>>
-forall(ExecutionPolicy&& p, Res &r, Container&& c, LoopBody&& loop_body)
-{
-  static_assert(type_traits::is_random_access_range<Container>::value,
-                "Container does not model RandomAccessIterator");
-
-  forall_impl(
-                                          std::forward<ExecutionPolicy>(p),
-                                          std::forward<Container>(c),
-                                          std::move(loop_body));
-
-  return resources::EventProxy<Res>(r);
-}
-
 template <typename ExecutionPolicy, typename Res, typename Container, typename... Params>
 RAJA_INLINE concepts::enable_if_t<
     resources::EventProxy<Res>,
     concepts::negate<type_traits::is_indexset_policy<ExecutionPolicy>>,
     concepts::negate<type_traits::is_multi_policy<ExecutionPolicy>>,
-    concepts::negate<type_traits::is_apollo_multi_policy<ExecutionPolicy>>,
     type_traits::is_range<Container>>
 forall(ExecutionPolicy&& p, Res r, Container&& c, Params&&... params)
 {
@@ -606,27 +585,6 @@ forall(Res r, Args&&... args)
   return ::RAJA::policy_by_value_interface::forall(
       ExecutionPolicy(), r, std::forward<Args>(args)...);
 }
-
-#if 0
-template <typename ExecutionPolicy, typename... Args,
-          typename Res = typename resources::get_resource<ExecutionPolicy>::type >
-RAJA_INLINE concepts::enable_if<
-    type_traits::is_apollo_multi_policy<ExecutionPolicy>>
-forall(Args&&... args)
-{
-  Res r = Res::get_default();
-  forall<ExecutionPolicy>(r, std::forward<Args>(args)...);
-  return;
-}
-template <typename ExecutionPolicy, typename Res, typename... Args>
-RAJA_INLINE concepts::enable_if<
-    type_traits::is_apollo_multi_policy<ExecutionPolicy>>
-forall(Res& r, Args&&... args)
-{
-  policy_by_value_interface::forall(ExecutionPolicy(), r, std::forward<Args>(args)...);
-  return;
-}
-#endif
 
 /*!
  * \brief Conversion from template-based policy to value-based policy for

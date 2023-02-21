@@ -53,6 +53,8 @@
 #include "apollo/Apollo.h"
 #include "apollo/Region.h"
 
+#include "RAJA/pattern/params/forall.hpp"
+
 // ----------
 
 
@@ -136,12 +138,12 @@ struct PolicyGeneratorSingle {
 
       RAJA::forall<ExecutionPolicy>(r,
                                     std::forward<Iterable>(iter),
-                                    std::move(loop_body));
+                                    std::forward<Func>(loop_body));
 
       PostLaunch<ExecutionPolicy>(r, region, context);
     } else
       PolicyGeneratorSingle<idx + 1, num_policies, PolicyList, Iterable, Func>::
-          generate(policy, region, context, std::forward<Iterable>(iter), std::move(loop_body));
+          generate(policy, region, context, std::forward<Iterable>(iter), std::forward<Func>(loop_body));
   }
 };
 
@@ -178,14 +180,20 @@ static RAJA_INLINE void PolicyGenerator(int policy,
                                         region,
                                         context,
                                         std::forward<Iterable>(iter),
-                                        std::move(loop_body));
+                                        std::forward<Func>(loop_body));
 }
 
-// TODO: fix resources, should not be host, may be cuda etc.
-template <typename PolicyList, typename Iterable, typename Func>
-RAJA_INLINE void forall_impl(const apollo_multi_exec<PolicyList> &,
-                             Iterable &&iter,
-                             Func &&loop_body)
+template <typename Resource,
+          typename PolicyList,
+          typename Iterable,
+          typename Func,
+          typename ForallParam>
+RAJA_INLINE resources::EventProxy<Resource> forall_impl(
+    Resource res,
+    const apollo_multi_exec<PolicyList> &,
+    Iterable &&iter,
+    Func &&loop_body,
+    ForallParam)
 {
   static Apollo *apollo = Apollo::instance();
   static Apollo::Region *apolloRegion = nullptr;
@@ -212,11 +220,10 @@ RAJA_INLINE void forall_impl(const apollo_multi_exec<PolicyList> &,
                                               apolloRegion,
                                               context,
                                               std::forward<Iterable>(iter),
-                                              std::move(loop_body));
+                                              std::forward<Func>(loop_body));
 
-  return;  // resources::EventProxy<Res>(&res);
+  return resources::EventProxy<Resource>(res);
 }
-
 //////////
 }  // closing brace for apollo namespace
 }  // closing brace for policy namespace
