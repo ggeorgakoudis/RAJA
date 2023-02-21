@@ -36,7 +36,7 @@ struct PostLaunchKernel {
 #if defined(RAJA_ENABLE_CUDA)
 template<typename... Args>
 struct PreLaunchKernel<RAJA::statement::CudaKernelAsync<Args...>> {
-  static void exec(Apollo::Region *region, Apollo::RegionContext *context)
+  static void exec(Apollo::Region */*region*/, Apollo::RegionContext *context)
   {
     context->timer = Apollo::Timer::create<Apollo::Timer::CudaAsync>();
     context->timer->start();
@@ -47,7 +47,7 @@ struct PreLaunchKernel<RAJA::statement::CudaKernelAsync<Args...>> {
 #if defined(RAJA_ENABLE_HIP)
 template<typename... Args>
 struct PreLaunchKernel<RAJA::statement::HipKernelAsync<Args...>> {
-  static void exec(Apollo::Region *region, Apollo::RegionContext *context)
+  static void exec(Apollo::Region */*region*/, Apollo::RegionContext *context)
   {
     context->timer = Apollo::Timer::create<Apollo::Timer::HipAsync>();
     context->timer->start();

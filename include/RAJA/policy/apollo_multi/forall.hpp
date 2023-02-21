@@ -81,7 +81,7 @@ concepts::enable_if<
   type_traits::is_cuda_policy<Pol>,
   RAJA::launch_is<Pol, RAJA::Launch::async>
 >
-PreLaunch(resources::Cuda &cuda_res, Apollo::Region *region, Apollo::RegionContext *context) {
+PreLaunch(resources::Cuda &/*cuda_res*/, Apollo::Region */*region*/, Apollo::RegionContext *context) {
   context->timer = Apollo::Timer::create<Apollo::Timer::CudaAsync>();
   context->timer->start();
 }
@@ -96,7 +96,7 @@ concepts::enable_if<
   type_traits::is_hip_policy<Pol>,
   RAJA::launch_is<Pol, RAJA::Launch::async>
 >
-PreLaunch(resources::Hip &hip_res, Apollo::Region *region, Apollo::RegionContext *context) {
+PreLaunch(resources::Hip &/*hip_res*/, Apollo::Region */*region*/, Apollo::RegionContext *context) {
   context->timer = Apollo::Timer::create<Apollo::Timer::HipAsync>();
   context->timer->start();
 }
