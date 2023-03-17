@@ -186,7 +186,13 @@ template <typename PolicyType,
           typename SegmentTuple,
           typename Resource,
           typename... Bodies>
-RAJA_INLINE resources::EventProxy<Resource> kernel_resource(SegmentTuple &&segments,
+RAJA_INLINE
+concepts::enable_if_t<
+    resources::EventProxy<Resource>,
+    concepts::negate<type_traits::is_apollo_multi_policy<PolicyType>
+    >
+>
+kernel_resource(SegmentTuple &&segments,
                                                             Resource resource,
                                                             Bodies &&... bodies)
 {

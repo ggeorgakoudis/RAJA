@@ -29,6 +29,24 @@ kernel(SegmentTuple &&segments, Bodies &&... bodies)
                                       std::forward<SegmentTuple>(segments),
                                       std::forward<Bodies>(bodies)...);
 }
+
+template <typename PolicyType,
+          typename SegmentTuple,
+          typename Resource,
+          typename... Bodies>
+RAJA_INLINE
+concepts::enable_if_t<
+    resources::EventProxy<Resource>,
+    type_traits::is_apollo_multi_policy<PolicyType>
+>
+kernel_resource(SegmentTuple &&segments, Resource resource, Bodies &&...bodies)
+{
+    PolicyType p;
+    policy_by_value_interface::kernel(std::forward<PolicyType>(p),
+                                      std::forward<SegmentTuple>(segments),
+                                      std::forward<Bodies>(bodies)...);
+    return resources::EventProxy<Resource>(resource);
+}
 }
 
 } // namespace RAJA
