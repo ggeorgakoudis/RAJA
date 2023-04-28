@@ -224,6 +224,152 @@ RAJA_INLINE resources::EventProxy<Resource> forall_impl(
 
   return resources::EventProxy<Resource>(res);
 }
+
+/// RangePolicy implementation.
+template <size_t idx,
+          size_t num_policies,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iterable,
+          typename Func>
+struct RangePolicyGeneratorSingle {
+  static RAJA_INLINE void generate(int policy,
+                                   Apollo::Region *region,
+                                   Apollo::RegionContext *context,
+                                   Iterable &&iter,
+                                   Func &&loop_body)
+  {
+    if (policy == idx) {
+      // generate policy variant, calls top-level forall pattern.
+      constexpr size_t BLOCK_SIZE = BLOCK_SIZE_START + idx * BLOCK_SIZE_STEP;
+
+      using ExecutionPolicy = RAJA::hip_exec<BLOCK_SIZE, Async>;
+
+      auto r = resources::get_resource<ExecutionPolicy>::type::get_default();
+
+      PreLaunch<ExecutionPolicy>(r, region, context);
+
+      RAJA::forall<ExecutionPolicy>(r,
+                                    std::forward<Iterable>(iter),
+                                    std::forward<Func>(loop_body));
+
+      PostLaunch<ExecutionPolicy>(r, region, context);
+    } else
+      RangePolicyGeneratorSingle<idx + 1,
+                                 num_policies,
+                                 BLOCK_SIZE_START,
+                                 BLOCK_SIZE_STEP,
+                                 Async,
+                                 Iterable,
+                                 Func>::generate(policy,
+                                                 region,
+                                                 context,
+                                                 std::forward<Iterable>(iter),
+                                                 std::forward<Func>(loop_body));
+  }
+};
+
+template <size_t num_policies,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iterable,
+          typename Func>
+struct RangePolicyGeneratorSingle<num_policies,
+                                  num_policies,
+                                  BLOCK_SIZE_START,
+                                  BLOCK_SIZE_STEP,
+                                  Async,
+                                  Iterable,
+                                  Func> {
+  static RAJA_INLINE void generate(int,
+                                   Apollo::Region *,
+                                   Apollo::RegionContext *,
+                                   Iterable &&,
+                                   Func &&)
+  {
+  }
+};
+
+template <size_t num_policies,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iterable,
+          typename Func>
+static RAJA_INLINE void RangePolicyGenerator(int policy,
+                                             Apollo::Region *region,
+                                             Apollo::RegionContext *context,
+                                             Iterable &&iter,
+                                             Func &&loop_body)
+{
+  RangePolicyGeneratorSingle<0,
+                             num_policies,
+                             BLOCK_SIZE_START,
+                             BLOCK_SIZE_STEP,
+                             Async,
+                             Iterable,
+                             Func>::generate(policy,
+                                             region,
+                                             context,
+                                             std::forward<Iterable>(iter),
+                                             std::forward<Func>(loop_body));
+}
+
+template <typename Resource,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iterable,
+          typename Func,
+          typename ForallParam>
+RAJA_INLINE resources::EventProxy<Resource> forall_impl(
+    Resource res,
+    const hip_exec_apollo<BLOCK_SIZE_START,
+                          BLOCK_SIZE_END,
+                          BLOCK_SIZE_STEP,
+                          Async> &,
+    Iterable &&iter,
+    Func &&loop_body,
+    ForallParam)
+{
+  static Apollo *apollo = Apollo::instance();
+  static Apollo::Region *apolloRegion = nullptr;
+  static int policy_index = 0;
+  constexpr int num_policies =
+      1 + (BLOCK_SIZE_END - BLOCK_SIZE_START) / BLOCK_SIZE_STEP;
+  if (apolloRegion == nullptr) {
+    std::string code_location = apollo->getCallpathOffset();
+    apolloRegion =
+        new Apollo::Region(/* num features */ 1,
+                           /* region id */ code_location.c_str(),
+                           /* num policies */ num_policies
+        );
+  }
+
+  // Count the number of elements.
+  float num_elements = 0.0;
+  num_elements = (float)std::distance(std::begin(iter), std::end(iter));
+
+  Apollo::RegionContext *context = apolloRegion->begin({num_elements});
+
+  policy_index = apolloRegion->getPolicyIndex(context);
+
+  RangePolicyGenerator<num_policies,
+                       BLOCK_SIZE_START,
+                       BLOCK_SIZE_STEP,
+                       Async,
+                       Iterable,
+                       Func>(policy_index,
+                             apolloRegion,
+                             context,
+                             std::forward<Iterable>(iter),
+                             std::forward<Func>(loop_body));
+
+  return resources::EventProxy<Resource>(res);
+}
 //////////
 }  // closing brace for apollo namespace
 }  // closing brace for policy namespace

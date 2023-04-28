@@ -58,6 +58,17 @@ struct apollo_multi_exec : public RAJA::make_policy_pattern_launch_platform_t<
                                 RAJA::Platform::undefined> {
 };
 
+template <size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async = false>
+struct hip_exec_apollo : public RAJA::make_policy_pattern_launch_platform_t<
+                            RAJA::Policy::hip,
+                            RAJA::Pattern::forall,
+                            detail::get_launch<Async>::value,
+                            RAJA::Platform::hip> {
+};
+
 ///
 ///////////////////////////////////////////////////////////////////////
 ///
@@ -70,6 +81,7 @@ struct apollo_multi_exec : public RAJA::make_policy_pattern_launch_platform_t<
 }  // end namespace policy
 
 using policy::apollo_multi::apollo_multi_exec;
+using policy::apollo_multi::hip_exec_apollo;
 
 ///
 ///////////////////////////////////////////////////////////////////////
