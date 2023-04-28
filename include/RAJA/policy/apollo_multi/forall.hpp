@@ -60,6 +60,44 @@
 
 namespace RAJA
 {
+
+
+namespace apollo
+{
+
+namespace hip
+{
+
+namespace impl
+{
+
+__device__ __forceinline__ unsigned int getGlobalIdx_1D_1D()
+{
+  unsigned int blockId = blockIdx.x;
+  unsigned int threadId = blockId * blockDim.x + threadIdx.x;
+  return threadId;
+}
+
+template <typename Iterator, typename LOOP_BODY, typename IndexType>
+__global__ void forall_hip_kernel(LOOP_BODY loop_body,
+                                  const Iterator idx,
+                                  IndexType length)
+{
+  using RAJA::internal::thread_privatize;
+  auto privatizer = thread_privatize(loop_body);
+  auto &body = privatizer.get_priv();
+  auto ii = static_cast<IndexType>(getGlobalIdx_1D_1D());
+  if (ii < length) {
+    body(idx[ii]);
+  }
+}
+
+} // end namespace hip
+
+}  // end namespace impl
+
+} // end namespace apollo
+
 namespace policy
 {
 namespace apollo_multi
@@ -342,11 +380,9 @@ RAJA_INLINE resources::EventProxy<Resource> forall_impl(
       1 + (BLOCK_SIZE_END - BLOCK_SIZE_START) / BLOCK_SIZE_STEP;
   if (apolloRegion == nullptr) {
     std::string code_location = apollo->getCallpathOffset();
-    apolloRegion =
-        new Apollo::Region(/* num features */ 1,
-                           /* region id */ code_location.c_str(),
-                           /* num policies */ num_policies
-        );
+    apolloRegion = new Apollo::Region(/* num features */ 1,
+                                      /* region id */ code_location.c_str(),
+                                      /* num policies */ num_policies);
   }
 
   // Count the number of elements.
@@ -369,6 +405,75 @@ RAJA_INLINE resources::EventProxy<Resource> forall_impl(
                              std::forward<Func>(loop_body));
 
   return resources::EventProxy<Resource>(res);
+}
+
+template <size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iterable,
+          typename LoopBody,
+          typename ForallParam>
+RAJA_INLINE resources::EventProxy<resources::Hip> forall_impl(
+    resources::Hip res,
+    const hip_exec_apollo_runtime<BLOCK_SIZE_START,
+                                  BLOCK_SIZE_END,
+                                  BLOCK_SIZE_STEP,
+                                  Async> &exec_policy,
+    Iterable &&iter,
+    LoopBody &&loop_body,
+    ForallParam)
+{
+  static Apollo *apollo = Apollo::instance();
+  static Apollo::Region *apolloRegion = nullptr;
+  static int policy_index = 0;
+  constexpr int num_policies =
+      1 + (BLOCK_SIZE_END - BLOCK_SIZE_START) / BLOCK_SIZE_STEP;
+  if (apolloRegion == nullptr) {
+    std::string code_location = apollo->getCallpathOffset();
+    apolloRegion = new Apollo::Region(/* num features */ 1,
+                                      /* region id */ code_location.c_str(),
+                                      /* num policies */ num_policies);
+  }
+
+  // Count the number of elements.
+  float num_elements = 0.0;
+  num_elements = (float)std::distance(std::begin(iter), std::end(iter));
+
+  Apollo::RegionContext *context = apolloRegion->begin({num_elements});
+
+  policy_index = apolloRegion->getPolicyIndex(context);
+
+  const size_t BlockSize = BLOCK_SIZE_START + policy_index * BLOCK_SIZE_STEP;
+  using Iterator = camp::decay<decltype(std::begin(iter))>;
+  using LOOP_BODY = camp::decay<LoopBody>;
+  using IndexType =
+      camp::decay<decltype(std::distance(std::begin(iter), std::end(iter)))>;
+  auto func = apollo::hip::impl::forall_hip_kernel<Iterator, LOOP_BODY, IndexType>;
+
+  Iterator begin = std::begin(iter);
+  Iterator end = std::end(iter);
+  IndexType len = std::distance(begin, end);
+
+  hip_dim_t blockSize{static_cast<uint32_t>(BlockSize), 1, 1};
+  hip_dim_t gridSize =
+      hip::impl::getGridDim(static_cast<hip_dim_member_t>(len), blockSize);
+
+  LOOP_BODY body = RAJA::hip::make_launch_body(
+      gridSize, blockSize, /* shmem */ 0, res, std::forward<LoopBody>(loop_body));
+
+  void *args[] = {(void *)&body, (void *)&begin, (void *)&len};
+
+  using ExecutionPolicy = decltype(exec_policy);
+
+  PreLaunch<ExecutionPolicy>(res, apolloRegion, context);
+
+  RAJA::hip::launch(
+      (const void *)func, gridSize, BlockSize, args, /* shmem */0, res, Async);
+
+  PostLaunch<ExecutionPolicy>(res, apolloRegion, context);
+
+  return resources::EventProxy<resources::Hip>(res);
 }
 //////////
 }  // closing brace for apollo namespace

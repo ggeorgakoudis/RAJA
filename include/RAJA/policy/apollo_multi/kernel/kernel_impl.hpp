@@ -214,6 +214,18 @@ struct HipKernelApollo
     : public internal::Statement<hip_exec<0>, EnclosedStmts...> {
 };
 
+template <bool Async,
+          size_t GRID_SIZE_START,
+          size_t GRID_SIZE_END,
+          size_t GRID_SIZE_STEP,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          typename... EnclosedStmts>
+struct HipKernelApolloRuntime
+    : public internal::Statement<hip_exec<0>, EnclosedStmts...> {
+};
+
 } // namespace statement
 
 namespace internal
@@ -389,6 +401,108 @@ struct StatementExecutor<statement::HipKernelApollo<Async,
                                            apolloRegion,
                                            context,
                                            std::forward<Data>(data));
+  }
+};
+
+template <bool Async,
+          size_t GRID_SIZE_START,
+          size_t GRID_SIZE_END,
+          size_t GRID_SIZE_STEP,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          typename... EnclosedStmts,
+          typename Types>
+struct StatementExecutor<statement::HipKernelApolloRuntime<Async,
+                                                           GRID_SIZE_START,
+                                                           GRID_SIZE_END,
+                                                           GRID_SIZE_STEP,
+                                                           BLOCK_SIZE_START,
+                                                           BLOCK_SIZE_END,
+                                                           BLOCK_SIZE_STEP,
+                                                           EnclosedStmts...>,
+                         Types> {
+  template <typename Data>
+  static inline void exec(Data &&data)
+  {
+    static Apollo *apollo = Apollo::instance();
+    static Apollo::Region *apolloRegion = nullptr;
+    static int policy_index = 0;
+
+    std::vector<float> features;
+    policy::apollo_multi::FeatureGenerator<typename camp::decay<
+        Data>::segment_tuple_t>::generate(data.segment_tuple, features);
+
+    constexpr size_t num_of_grid_sizes = 1 + (GRID_SIZE_END - GRID_SIZE_START) / GRID_SIZE_STEP;
+    constexpr size_t num_of_block_sizes = 1 + (BLOCK_SIZE_END - BLOCK_SIZE_START) / BLOCK_SIZE_STEP;
+    constexpr size_t num_policies = num_of_grid_sizes * num_of_block_sizes;
+
+    //std::cout << "num_policies " << num_policies << "\n";
+
+    if (apolloRegion == nullptr) {
+      std::string code_location = apollo->getCallpathOffset();
+      apolloRegion = new Apollo::Region(
+          /* num features */ camp::tuple_size<
+              typename camp::decay<Data>::segment_tuple_t>::value,
+          /* region id */ code_location.c_str(),
+          /* num policies */ num_policies);
+    }
+
+    Apollo::RegionContext *context = apolloRegion->begin(features);
+
+    policy_index = apolloRegion->getPolicyIndex(context);
+
+    // Iterate policies.
+    int policy_index_grid_size = policy_index / num_of_block_sizes;
+    int policy_index_block_size = policy_index % num_of_block_sizes;
+
+    size_t GridSize = GRID_SIZE_START + policy_index_grid_size * GRID_SIZE_STEP;
+    size_t BlockSize =
+        BLOCK_SIZE_START + policy_index_block_size * BLOCK_SIZE_STEP;
+
+    RAJA::resources::Hip res = data.get_resource();
+    using stmt_list_t = StatementList<EnclosedStmts...>;
+    using data_t = camp::decay<Data>;
+    using executor_t = hip_statement_list_executor_t<stmt_list_t, data_t, Types>;
+    LaunchDims launch_dims = executor_t::calculateDimensions(data);
+    launch_dims.blocks = {static_cast<uint32_t>(GridSize), 1, 1};
+    launch_dims.threads = {static_cast<uint32_t>(BlockSize), 1, 1};
+
+    auto hip_data = RAJA::hip::make_launch_body(
+        launch_dims.blocks, launch_dims.threads, /*shmem*/ 0, res, data);
+
+    // Use 0 for BlockSize since it is a runtime-value, launch bounds cannot be
+    // set.
+    using kernelGetter_t = HipKernelLauncherGetter<0, data_t, executor_t>;
+
+    //std::cout << "launch_dims.blocks " << launch_dims.blocks.x << ", "
+    //          << launch_dims.blocks.y << ", " << launch_dims.blocks.z << "\n";
+
+    //std::cout << "launch_dims.threads " << launch_dims.threads.x << ", "
+    //          << launch_dims.threads.y << ", " << launch_dims.threads.z << "\n";
+
+    auto func = kernelGetter_t::get();
+    static constexpr bool async = Async;
+    void *args[] = {(void*)&hip_data};
+
+    // Use Async to select PreLaunch/PostLaunch.
+    // TODO: Fix, not every elegant, using HipKernel/HipKernelAsync types.
+    using tmp_stmt_t =
+        typename std::conditional<Async,
+                                  statement::HipKernelAsync<EnclosedStmts...>,
+                                  statement::HipKernel<EnclosedStmts...>>::type;
+    // TODO: clean up namespaces.
+    policy::apollo_multi::PreLaunchKernel<tmp_stmt_t>::exec(apolloRegion, context);
+
+    RAJA::hip::launch((const void *)func,
+                      launch_dims.blocks,
+                      launch_dims.threads,
+                      args,
+                      /*shmem*/ 0,
+                      res,
+                      async);
+
+    policy::apollo_multi::PostLaunchKernel<tmp_stmt_t>::exec(apolloRegion, context);
   }
 };
 
