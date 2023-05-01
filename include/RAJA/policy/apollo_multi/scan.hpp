@@ -644,6 +644,121 @@ Res exclusive(Res r,
   return {r};
 }
 
+
+/// Range implementation.
+
+template <typename Res,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iter,
+          typename BinFn>
+RAJA_INLINE Res
+inclusive_inplace(Res r,
+                  const hip_exec_apollo_runtime<BLOCK_SIZE_START,
+                                                BLOCK_SIZE_END,
+                                                BLOCK_SIZE_STEP,
+                                                Async> &,
+                  Iter begin,
+                  Iter end,
+                  BinFn f)
+{
+  RAJA::impl::scan::inclusive_inplace(
+      r, hip_exec<0, Async>(), std::move(begin), std::move(end), std::move(f));
+
+  return {r};
+}
+
+template <typename Res,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iter,
+          typename OutIter,
+          typename BinFn>
+RAJA_INLINE Res
+inclusive(Res r,
+                  const hip_exec_apollo_runtime<BLOCK_SIZE_START,
+                                                BLOCK_SIZE_END,
+                                                BLOCK_SIZE_STEP,
+                                                Async> &,
+                  Iter begin,
+                  Iter end,
+                  OutIter out,
+                  BinFn f)
+{
+  RAJA::impl::scan::inclusive(r,
+                              hip_exec<0, Async>(),
+                              std::move(begin),
+                              std::move(end),
+                              std::move(out),
+                              std::move(f));
+
+  return {r};
+}
+
+template <typename Res,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iter,
+          typename BinFn,
+          typename ValueT>
+RAJA_INLINE Res
+exclusive_inplace(Res r,
+                  const hip_exec_apollo_runtime<BLOCK_SIZE_START,
+                                                BLOCK_SIZE_END,
+                                                BLOCK_SIZE_STEP,
+                                                Async> &,
+
+                  Iter begin,
+                  Iter end,
+                  BinFn f,
+                  ValueT v)
+{
+  RAJA::impl::scan::exclusive_inplace(r,
+                                      hip_exec<0, Async>(),
+                                      std::move(begin),
+                                      std::move(end),
+                                      std::move(f),
+                                      std::move(v));
+  return {r};
+}
+
+template <typename Res,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP,
+          bool Async,
+          typename Iter,
+          typename OutIter,
+          typename BinFn,
+          typename ValueT>
+Res exclusive(Res r,
+              const hip_exec_apollo_runtime<BLOCK_SIZE_START,
+                                            BLOCK_SIZE_END,
+                                            BLOCK_SIZE_STEP,
+                                            Async> &,
+              Iter begin,
+              Iter end,
+              OutIter out,
+              BinFn f,
+              ValueT v)
+{
+  RAJA::impl::scan::exclusive(r,
+                              hip_exec<0, Async>(),
+                              std::move(begin),
+                              std::move(end),
+                              std::move(out),
+                              std::move(f),
+                              std::move(v));
+
+  return {r};
+}
+
 }  // namespace scan
 
 }  // namespace impl
