@@ -44,6 +44,7 @@
 #include "RAJA/policy/apollo_multi/kernel.hpp"
 //#include "RAJA/policy/apollo_multi/policy.hpp"
 #include "RAJA/policy/apollo_multi/scan.hpp"
+#include "RAJA/policy/apollo_multi/launch.hpp"
 
 #endif // RAJA_ENABLE_APOLLO
 

@@ -81,6 +81,21 @@ struct hip_exec_apollo_runtime
           RAJA::Platform::hip> {
 };
 
+template <bool Async,
+          size_t GRID_SIZE_START,
+          size_t GRID_SIZE_END,
+          size_t GRID_SIZE_STEP,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP>
+struct hip_launch_apollo_range_t
+    : public RAJA::make_policy_pattern_launch_platform_t<
+          RAJA::Policy::hip,
+          RAJA::Pattern::region,
+          detail::get_launch<Async>::value,
+          RAJA::Platform::hip> {
+};
+
 ///
 ///////////////////////////////////////////////////////////////////////
 ///
@@ -95,7 +110,7 @@ struct hip_exec_apollo_runtime
 using policy::apollo_multi::apollo_multi_exec;
 using policy::apollo_multi::hip_exec_apollo;
 using policy::apollo_multi::hip_exec_apollo_runtime;
-
+using policy::apollo_multi::hip_launch_apollo_range_t;
 
 namespace resources
 {
@@ -117,6 +132,23 @@ struct get_resource<hip_exec_apollo_runtime<BLOCK_SIZE_START,
                                             BLOCK_SIZE_END,
                                             BLOCK_SIZE_STEP,
                                             Async>> {
+  using type = camp::resources::Hip;
+};
+
+template <bool Async,
+          size_t GRID_SIZE_START,
+          size_t GRID_SIZE_END,
+          size_t GRID_SIZE_STEP,
+          size_t BLOCK_SIZE_START,
+          size_t BLOCK_SIZE_END,
+          size_t BLOCK_SIZE_STEP>
+struct get_resource<hip_launch_apollo_range_t<Async,
+                                              GRID_SIZE_START,
+                                              GRID_SIZE_END,
+                                              GRID_SIZE_STEP,
+                                              BLOCK_SIZE_START,
+                                              BLOCK_SIZE_END,
+                                              BLOCK_SIZE_STEP>> {
   using type = camp::resources::Hip;
 };
 
